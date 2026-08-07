@@ -49,9 +49,13 @@ const testes = [
       return 'carregada';
     }},
   { nome: 'Servidor do banco responde', fn: async () => {
-      const r = await fetch(SUPABASE_URL + '/rest/v1/', { headers: { apikey: SUPABASE_CHAVE } });
+      // Precisa dos dois cabeçalhos: a chave identifica o projeto,
+      // a autorização identifica quem está pedindo.
+      const r = await fetch(SUPABASE_URL + '/rest/v1/', {
+        headers: { apikey: SUPABASE_CHAVE, Authorization: 'Bearer ' + SUPABASE_CHAVE }
+      });
       if (!r.ok && r.status !== 404) throw new Error('HTTP ' + r.status);
-      return 'HTTP ' + r.status;
+      return 'respondendo (HTTP ' + r.status + ')';
     }},
   { nome: 'Tabelas criadas', fn: async () => {
       const r = await fetch(SUPABASE_URL + '/rest/v1/empresa?select=id&limit=1', {

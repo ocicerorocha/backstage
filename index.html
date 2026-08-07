@@ -22,9 +22,14 @@
           <pre id="falha-detalhe" style="font-size:12px;background:var(--superficie-2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;white-space:pre-wrap;word-break:break-word"></pre>
           <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
             <button class="botao" onclick="location.reload()">Tentar de novo</button>
+            <button class="botao" id="btn-limpar">Limpar e recomeçar</button>
             <button class="botao" id="btn-copiar">Copiar erro</button>
             <a class="botao" href="diagnostico.html">Abrir diagnóstico</a>
           </div>
+          <p style="font-size:12px;color:var(--texto-3);margin-top:10px">
+            "Limpar e recomeçar" apaga a sessão guardada neste navegador e volta para a tela de entrada.
+            Nenhum dado do sistema é perdido.
+          </p>
         </div>
       </div>
     </div>
@@ -86,10 +91,24 @@
   }, 15000);
 
   document.addEventListener('click', function (e) {
-    if (e.target && e.target.id === 'btn-copiar') {
+    if (!e.target) return;
+
+    if (e.target.id === 'btn-copiar') {
       var t = document.getElementById('falha-detalhe').textContent;
       navigator.clipboard && navigator.clipboard.writeText(t);
       e.target.textContent = 'Copiado';
+    }
+
+    if (e.target.id === 'btn-limpar') {
+      try {
+        Object.keys(localStorage).forEach(function (k) {
+          if (k.indexOf('sb-') === 0 || k.toLowerCase().indexOf('supabase') >= 0) {
+            localStorage.removeItem(k);
+          }
+        });
+        sessionStorage.clear();
+      } catch (err) {}
+      location.reload();
     }
   });
 })();
