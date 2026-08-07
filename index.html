@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Backstage</title>
+<meta name="description" content="Gestão financeira para produtoras de eventos">
+<meta name="theme-color" content="#ffffff">
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+  <div id="carregando" class="tela-carregando">
+    <div class="girando"></div>
+  </div>
+
+  <div id="app" hidden></div>
+
+  <div id="toasts" class="toasts"></div>
+  <div id="modal" class="modal-fundo" hidden>
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-topo">
+        <h2 id="modal-titulo"></h2>
+        <button class="botao-icone" id="modal-fechar" aria-label="Fechar">&times;</button>
+      </div>
+      <div id="modal-corpo"></div>
+    </div>
+  </div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
