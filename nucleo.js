@@ -385,6 +385,23 @@ export async function alternarFornecedor(id, ativo) {
   if (error) throw new Error(traduzErro(error.message));
 }
 
+/** Dados de pagamento de vários fornecedores de uma vez, para preencher formulários. */
+export async function meiosPagamentoDaEmpresa(empresaId) {
+  const { data, error } = await bd
+    .from('fornecedor_pagamento')
+    .select('*, fornecedor:fornecedor_id!inner(id, empresa_id)')
+    .eq('ativo', true)
+    .eq('fornecedor.empresa_id', empresaId);
+  if (error) { console.warn('meios de pagamento:', error.message); return []; }
+  // um por fornecedor, o mais recente
+  const porFornecedor = {};
+  (data || []).forEach(m => {
+    const k = m.fornecedor_id;
+    if (!porFornecedor[k] || m.atualizado_em > porFornecedor[k].atualizado_em) porFornecedor[k] = m;
+  });
+  return Object.values(porFornecedor);
+}
+
 /** Meios de pagamento. Visíveis apenas a quem confirma pagamento. */
 export async function listarMeiosPagamento(fornecedorId) {
   const { data, error } = await bd
@@ -581,6 +598,12 @@ export async function criarSolicitacao(eventoId, dados, parcelas) {
       valor: Number(dados.valor),
       justificativa: dados.justificativa?.trim() || null,
       solicitante_id: sessao.usuario.id,
+      pag_tipo:    dados.pag_tipo || null,
+      pag_chave:   dados.pag_chave?.trim() || null,
+      pag_banco:   dados.pag_banco?.trim() || null,
+      pag_agencia: dados.pag_agencia?.trim() || null,
+      pag_conta:   dados.pag_conta?.trim() || null,
+      pag_titular: dados.pag_titular?.trim() || null,
     })
     .select().single();
   if (error) throw new Error(traduzErro(error.message));

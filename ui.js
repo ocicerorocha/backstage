@@ -107,6 +107,65 @@ export const SITUACAO_EVENTO = {
   encerrado:    { rotulo: 'Encerrado',    classe: 'etiqueta-verde' },
 };
 
+/* ── seletor com cadastro rápido ───────────────────── */
+
+/**
+ * Liga um <select> de fornecedores à criação na hora.
+ * Escolher "+ cadastrar fornecedor" abre um campo embutido:
+ * digita o nome, salva, e já fica selecionado.
+ *
+ * A lista é compartilhada por referência, então todas as telas
+ * abertas enxergam o fornecedor novo sem recarregar nada.
+ */
+export function ligarCadastroRapido(seletor, lista, aoCriar) {
+  const sel = typeof seletor === 'string' ? document.querySelector(seletor) : seletor;
+  if (!sel) return;
+
+  const caixa = document.createElement('div');
+  caixa.hidden = true;
+  caixa.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+  caixa.innerHTML = `
+    <input class="controle" placeholder="Nome do fornecedor" style="height:36px;font-size:14px;flex:1">
+    <button type="button" class="botao" style="height:36px;font-size:13px">Salvar</button>
+    <button type="button" class="botao" style="height:36px;font-size:13px">Cancelar</button>`;
+  sel.parentNode.insertBefore(caixa, sel.nextSibling);
+
+  const [campo, salvar, cancelar] = [
+    caixa.querySelector('input'), caixa.querySelectorAll('button')[0], caixa.querySelectorAll('button')[1]];
+  let anterior = sel.value;
+
+  const fechar = () => { caixa.hidden = true; campo.value = ''; sel.value = anterior; };
+
+  sel.addEventListener('change', () => {
+    if (sel.value === '__novo') { caixa.hidden = false; campo.focus(); }
+    else { anterior = sel.value; caixa.hidden = true; }
+  });
+
+  cancelar.addEventListener('click', fechar);
+  campo.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); salvar.click(); }
+    if (e.key === 'Escape') { e.preventDefault(); fechar(); }
+  });
+
+  salvar.addEventListener('click', async () => {
+    const nome = campo.value.trim();
+    if (!nome) return aviso('Informe o nome do fornecedor.', 'aviso');
+    salvar.disabled = true;
+    try {
+      const novo = await aoCriar(nome);
+      lista.push(novo);
+      const opt = document.createElement('option');
+      opt.value = novo.id; opt.textContent = novo.nome;
+      sel.insertBefore(opt, sel.querySelector('option[value="__novo"]'));
+      sel.value = novo.id; anterior = novo.id;
+      caixa.hidden = true; campo.value = '';
+      aviso('Fornecedor cadastrado.');
+    } catch (e) {
+      aviso(e.message, 'erro');
+    } finally { salvar.disabled = false; }
+  });
+}
+
 /* ── tema ──────────────────────────────────────────── */
 const CHAVE_TEMA = 'backstage:tema';
 

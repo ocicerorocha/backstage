@@ -9,9 +9,10 @@
 import {
   listarSolicitacoes, saldoItens, listarParcelas, criarSolicitacao,
   aprovarSolicitacao, recusarSolicitacao, cancelarSolicitacao,
-  listarFornecedores, empresaAtual, sessao,
+  listarFornecedores, salvarFornecedor, empresaAtual, sessao,
+  meiosPagamentoDaEmpresa, salvarMeioPagamento,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
 
 export const SITUACOES = {
@@ -27,6 +28,7 @@ let _solicitacoes = [];
 let _saldos = [];
 let _parcelas = [];
 let _fornecedores = [];
+let _meios = [];
 let _filtro = '';
 
 export async function abaSolicitacoes(alvo, apenasFila = false) {
@@ -39,6 +41,7 @@ export async function abaSolicitacoes(alvo, apenasFila = false) {
       _fornecedores.length ? Promise.resolve(_fornecedores) : listarFornecedores(emp.id),
     ]);
     _parcelas = await listarParcelas(_solicitacoes.map(s => s.id));
+    _meios = await meiosPagamentoDaEmpresa(emp.id);
   } catch (e) {
     alvo.innerHTML = `<div class="vazio"><h3>Não consegui carregar</h3><p>${esc(e.message)}</p></div>`;
     return;
@@ -166,6 +169,10 @@ function desenharFila(alvo) {
                 <div style="font-size:13px;color:var(--texto-2);margin-top:2px">
                   ${esc(s.fornecedor_nome || 'sem favorecido')} · pedido por ${esc(s.solicitante_nome || '—')} em ${dataBR(s.criado_em)}
                 </div>
+                ${s.pag_divergente ? `
+                  <div style="margin-top:6px">
+                    <span class="etiqueta etiqueta-ambar">dados de pagamento diferentes do cadastro</span>
+                  </div>` : ''}
                 ${s.justificativa ? `<div style="font-size:13px;margin-top:6px">${esc(s.justificativa)}</div>` : ''}
                 ${parcelas.length > 1 ? `
                   <div style="font-size:12px;color:var(--texto-2);margin-top:6px">
@@ -239,6 +246,7 @@ export function modalNova(alvo, itemId = null) {
           <select class="controle" id="s-forn">
             <option value="">— a definir —</option>
             ${_fornecedores.map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('')}
+            <option value="__novo">+ cadastrar fornecedor</option>
           </select>
         </div>
         <div class="campo">
@@ -254,6 +262,62 @@ export function modalNova(alvo, itemId = null) {
           + Acrescentar parcela
         </button>
         <div class="dica" id="s-conf"></div>
+      </div>
+
+      <div class="campo">
+        <label>Para onde vai o dinheiro</label>
+        <div class="cartao" style="background:var(--superficie-2);border:none;padding:12px">
+          <div id="s-origem" class="dica" style="margin:0 0 10px"></div>
+
+          <div class="linha linha-2" style="margin-bottom:0">
+            <div class="campo" style="margin-bottom:10px">
+              <label for="s-pag-tipo">Forma</label>
+              <select class="controle" id="s-pag-tipo" style="height:36px;font-size:14px">
+                <option value="pix">PIX</option>
+                <option value="conta">Conta bancária</option>
+              </select>
+            </div>
+            <div class="campo" style="margin-bottom:10px">
+              <label for="s-pag-titular">Titular</label>
+              <input class="controle" id="s-pag-titular" style="height:36px;font-size:14px">
+            </div>
+          </div>
+
+          <div id="s-bloco-pix">
+            <div class="campo" style="margin-bottom:10px">
+              <label for="s-pag-chave">Chave PIX</label>
+              <input class="controle" id="s-pag-chave" style="height:36px;font-size:14px"
+                     placeholder="CNPJ, telefone, email ou chave aleatória">
+            </div>
+          </div>
+
+          <div id="s-bloco-conta" hidden>
+            <div class="linha linha-2">
+              <div class="campo" style="margin-bottom:10px">
+                <label for="s-pag-banco">Banco</label>
+                <input class="controle" id="s-pag-banco" style="height:36px;font-size:14px">
+              </div>
+              <div class="campo" style="margin-bottom:10px">
+                <label for="s-pag-ag">Agência</label>
+                <input class="controle" id="s-pag-ag" style="height:36px;font-size:14px">
+              </div>
+            </div>
+            <div class="campo" style="margin-bottom:10px">
+              <label for="s-pag-conta">Conta</label>
+              <input class="controle" id="s-pag-conta" style="height:36px;font-size:14px">
+            </div>
+          </div>
+
+          <div id="s-aviso-div"></div>
+
+          <label class="caixa-perm" id="s-salvar-cad-wrap" hidden style="margin-top:6px">
+            <input type="checkbox" id="s-salvar-cad">
+            <span>
+              <span class="rot">Guardar no cadastro do fornecedor</span>
+              <span class="desc">Passa a preencher sozinho nas próximas solicitações</span>
+            </span>
+          </label>
+        </div>
       </div>
 
       <div class="campo">
@@ -328,6 +392,75 @@ export function modalNova(alvo, itemId = null) {
   });
   q('#s-cancelar').addEventListener('click', fecharModal);
 
+  ligarCadastroRapido('#s-forn', _fornecedores,
+    async nome => {
+      const novo = await salvarFornecedor(empresaAtual().id, null, { nome });
+      setTimeout(preencherPagamento, 0);
+      return novo;
+    });
+
+  /* ── dados de pagamento ── */
+
+  const meioDoFornecedor = id => _meios.find(m => m.fornecedor_id === id) || null;
+
+  const alternarBlocos = () => {
+    const pix = q('#s-pag-tipo').value === 'pix';
+    q('#s-bloco-pix').hidden = !pix;
+    q('#s-bloco-conta').hidden = pix;
+  };
+
+  const conferirDivergencia = () => {
+    const m = meioDoFornecedor(q('#s-forn').value);
+    const el = q('#s-aviso-div');
+    if (!m) { el.innerHTML = ''; q('#s-salvar-cad-wrap').hidden = !q('#s-forn').value || q('#s-forn').value === '__novo'; return; }
+
+    const mudouChave = (q('#s-pag-chave').value || '').trim() !== (m.chave_pix || '');
+    const mudouConta = (q('#s-pag-conta').value || '').trim() !== (m.conta || '');
+
+    if (mudouChave || mudouConta) {
+      el.innerHTML = `
+        <div class="cartao" style="background:var(--ambar-fundo);border-color:var(--ambar);padding:10px;margin-top:4px">
+          <div style="font-size:12px;color:var(--ambar)">
+            <strong>Diferente do cadastro.</strong><br>
+            ${mudouChave ? `Cadastro: ${esc(m.chave_pix || '—')}<br>` : ''}
+            ${mudouConta ? `Conta no cadastro: ${esc(m.conta || '—')}<br>` : ''}
+            Quem for confirmar o pagamento verá este aviso.
+          </div>
+        </div>`;
+      q('#s-salvar-cad-wrap').hidden = false;
+    } else {
+      el.innerHTML = '';
+      q('#s-salvar-cad-wrap').hidden = true;
+      q('#s-salvar-cad').checked = false;
+    }
+  };
+
+  function preencherPagamento() {
+    const id = q('#s-forn').value;
+    const m = id && id !== '__novo' ? meioDoFornecedor(id) : null;
+    if (m) {
+      q('#s-pag-tipo').value = m.tipo || 'pix';
+      q('#s-pag-chave').value = m.chave_pix || '';
+      q('#s-pag-banco').value = m.banco || '';
+      q('#s-pag-ag').value = m.agencia || '';
+      q('#s-pag-conta').value = m.conta || '';
+      q('#s-pag-titular').value = m.titular || '';
+      q('#s-origem').innerHTML = '<span style="color:var(--verde)">Preenchido com os dados do cadastro do fornecedor. Confira e edite se precisar.</span>';
+    } else if (id && id !== '__novo') {
+      ['#s-pag-chave','#s-pag-banco','#s-pag-ag','#s-pag-conta','#s-pag-titular'].forEach(x => q(x).value = '');
+      q('#s-origem').innerHTML = 'Este fornecedor ainda não tem dados salvos. Informe abaixo.';
+    } else {
+      q('#s-origem').innerHTML = 'Escolha o favorecido para preencher automaticamente, ou informe abaixo.';
+    }
+    alternarBlocos();
+    conferirDivergencia();
+  }
+
+  q('#s-pag-tipo').addEventListener('change', alternarBlocos);
+  ['#s-pag-chave','#s-pag-conta'].forEach(x => q(x).addEventListener('input', conferirDivergencia));
+  q('#s-forn').addEventListener('change', preencherPagamento);
+
+  preencherPagamento();
   mostrarSaldo();
   desenharParcelas();
 
@@ -345,12 +478,35 @@ export function modalNova(alvo, itemId = null) {
 
     await comBotao(q('#s-salvar'), async () => {
       try {
+        const forn = q('#s-forn').value === '__novo' ? '' : q('#s-forn').value;
+        const pag = {
+          pag_tipo: q('#s-pag-tipo').value,
+          pag_chave: q('#s-pag-chave').value,
+          pag_banco: q('#s-pag-banco').value,
+          pag_agencia: q('#s-pag-ag').value,
+          pag_conta: q('#s-pag-conta').value,
+          pag_titular: q('#s-pag-titular').value,
+        };
+
         await criarSolicitacao(contexto.evento.id, {
           item_id: q('#s-item').value,
-          fornecedor_id: q('#s-forn').value,
+          fornecedor_id: forn,
           valor,
           justificativa: q('#s-just').value,
+          ...pag,
         }, validas);
+
+        // guardar no cadastro só quando explicitamente pedido
+        if (forn && q('#s-salvar-cad').checked) {
+          const m = _meios.find(x => x.fornecedor_id === forn);
+          try {
+            await salvarMeioPagamento(forn, m?.id || null, {
+              tipo: pag.pag_tipo, chave_pix: pag.pag_chave, banco: pag.pag_banco,
+              agencia: pag.pag_agencia, conta: pag.pag_conta, titular: pag.pag_titular,
+            });
+            aviso('Dados guardados no cadastro do fornecedor.');
+          } catch (e) { aviso('Solicitação criada, mas não consegui guardar no cadastro: ' + e.message, 'aviso'); }
+        }
         aviso('Solicitação enviada para aprovação.');
         fecharModal();
         await recarregarItens();
@@ -382,6 +538,24 @@ function modalDetalhe(id, alvo, fila = false) {
         <span class="etiqueta ${sit.classe}" style="margin-top:4px">${sit.rotulo}</span>
       </div>
     </div>
+
+    ${s.pag_chave || s.pag_conta ? `
+      <div class="cartao" style="margin-bottom:14px;padding:12px">
+        <div style="font-size:12px;color:var(--texto-3);margin-bottom:4px">Para onde vai</div>
+        <div style="font-size:14px">
+          ${s.pag_tipo === 'conta'
+            ? `${esc(s.pag_banco || '')} · ag ${esc(s.pag_agencia || '—')} · cc ${esc(s.pag_conta || '—')}`
+            : `PIX ${esc(s.pag_chave || '—')}`}
+        </div>
+        ${s.pag_titular ? `<div style="font-size:12px;color:var(--texto-2)">${esc(s.pag_titular)}</div>` : ''}
+        ${s.pag_divergente ? `
+          <div style="margin-top:8px;padding:8px 10px;background:var(--ambar-fundo);border-radius:var(--raio)">
+            <div style="font-size:12px;color:var(--ambar)">
+              <strong>Diferente do cadastro do fornecedor.</strong>
+              ${s.cadastro_chave ? `<br>No cadastro: ${esc(s.cadastro_chave)}` : ''}
+            </div>
+          </div>` : ''}
+      </div>` : ''}
 
     ${s.justificativa ? `<div class="cartao" style="margin-bottom:14px;font-size:14px">${esc(s.justificativa)}</div>` : ''}
     ${s.motivo_recusa ? `

@@ -8,10 +8,10 @@
 // ═══════════════════════════════════════════════════════
 
 import {
-  empresaAtual, listarCategorias, criarCategoria, listarFornecedores,
+  empresaAtual, listarCategorias, criarCategoria, listarFornecedores, salvarFornecedor,
   salvarItem, apagarItem, listarPrestacao, salvarPrestacao, apagarPrestacao,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
 import { abrirImportacao } from './importacao.js';
 import { modalNova, abaSolicitacoes } from './solicitacoes.js';
@@ -209,6 +209,7 @@ function modalItem(item) {
           <select class="controle" id="i-forn">
             <option value="">— a definir —</option>
             ${_fornecedores.map(f => `<option value="${esc(f.id)}" ${i.fornecedor_id === f.id ? 'selected' : ''}>${esc(f.nome)}</option>`).join('')}
+            <option value="__novo">+ cadastrar fornecedor</option>
           </select>
         </div>
       </div>
@@ -298,6 +299,9 @@ function modalItem(item) {
     } catch (err) { aviso(err.message, 'erro'); }
   });
 
+  ligarCadastroRapido('#i-forn', _fornecedores,
+    nome => salvarFornecedor(empresaAtual().id, null, { nome }));
+
   const calcular = () => {
     const v = (Number(q('#i-qnt').value) || 0) * (Number(q('#i-dias').value) || 0) * (Number(q('#i-unit').value) || 0);
     q('#i-resultado').textContent = v ? '= ' + moeda(v) : '';
@@ -334,7 +338,7 @@ function modalItem(item) {
         await salvarItem(contexto.evento.id, i.id || null, {
           descricao,
           categoria_id: q('#i-cat').value === '__nova' ? '' : q('#i-cat').value,
-          fornecedor_id: q('#i-forn').value,
+          fornecedor_id: q('#i-forn').value === '__novo' ? '' : q('#i-forn').value,
           valor_orcado: q('#i-valor').value,
           custo_referencia: q('#i-ref').value,
           situacao: q('#i-sit').value,
