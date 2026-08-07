@@ -14,6 +14,7 @@ import {
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
 import { abrirImportacao } from './importacao.js';
+import { modalNova, abaSolicitacoes } from './solicitacoes.js';
 
 const SITUACOES = {
   previsto:   { rotulo: 'Previsto',   classe: 'etiqueta-neutra' },
@@ -42,6 +43,8 @@ export async function abaProducao(alvo) {
 
 function desenhar(alvo) {
   const podeEditar = contexto.permissao?.admin || contexto.permissao?.editar_producao;
+  const podeSolicitar = (contexto.permissao?.admin || contexto.permissao?.criar_solicitacao)
+                        && contexto.evento.situacao !== 'encerrado';
   const aberto = contexto.evento.situacao !== 'encerrado';
 
   let itens = contexto.itens;
@@ -88,18 +91,19 @@ function desenhar(alvo) {
               <th style="width:120px" class="num">Ano anterior</th>
               <th style="width:130px" class="num">Orçado</th>
               <th style="width:110px">Situação</th>
+              ${podeSolicitar ? '<th style="width:44px"></th>' : ''}
               ${podeEditar ? '<th style="width:44px"></th>' : ''}
             </tr>
           </thead>
           <tbody>
-            ${itens.map(i => linha(i, podeEditar)).join('')}
+            ${itens.map(i => linha(i, podeEditar, podeSolicitar)).join('')}
           </tbody>
           <tfoot>
             <tr>
               <td colspan="3">${itens.length} ${itens.length === 1 ? 'item' : 'itens'}</td>
               <td class="num" style="color:var(--texto-2)">${moeda(totalRef)}</td>
               <td class="num" style="font-weight:600">${moeda(totalOrcado)}</td>
-              <td colspan="${podeEditar ? 2 : 1}"></td>
+              <td colspan="${(podeEditar ? 1 : 0) + (podeSolicitar ? 1 : 0) + 1}"></td>
             </tr>
           </tfoot>
         </table>
@@ -140,9 +144,18 @@ function desenhar(alvo) {
       e.stopPropagation();
       modalItem(contexto.itens.find(x => x.id === el.dataset.editar));
     }));
+
+  // atalho: abre a solicitação já com este item selecionado
+  alvo.querySelectorAll('[data-solicitar]').forEach(el =>
+    el.addEventListener('click', async e => {
+      e.stopPropagation();
+      const id = el.dataset.solicitar;
+      await abaSolicitacoes(document.createElement('div'));
+      modalNova(alvo, id);
+    }));
 }
 
-function linha(i, podeEditar) {
+function linha(i, podeEditar, podeSolicitar) {
   const s = SITUACOES[i.situacao] || SITUACOES.orcado;
   const dif = i.custo_referencia != null
     ? Number(i.valor_orcado) - Number(i.custo_referencia) : null;
@@ -163,7 +176,8 @@ function linha(i, podeEditar) {
       </td>
       <td class="num" style="font-weight:500">${moeda(i.valor_orcado)}</td>
       <td><span class="etiqueta ${s.classe}">${s.rotulo}</span></td>
-      ${podeEditar ? `<td><button class="botao-icone" data-editar="${esc(i.id)}" title="Editar">✎</button></td>` : ''}
+      ${podeSolicitar ? `<td><button class="botao-icone" data-solicitar="${esc(i.id)}" title="Solicitar pagamento deste item">&#128181;</button></td>` : ''}
+      ${podeEditar ? `<td><button class="botao-icone" data-editar="${esc(i.id)}" title="Editar">&#9998;</button></td>` : ''}
     </tr>`;
 }
 

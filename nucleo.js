@@ -537,6 +537,86 @@ export async function apagarPrestacao(id) {
   if (error) throw new Error(traduzErro(error.message));
 }
 
+/* ── solicitações ──────────────────────────────────── */
+
+export async function listarSolicitacoes(eventoId) {
+  const { data, error } = await bd
+    .from('solicitacao_visao')
+    .select('*')
+    .eq('evento_id', eventoId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function saldoItens(eventoId) {
+  const { data, error } = await bd
+    .from('item_saldo')
+    .select('*')
+    .eq('evento_id', eventoId)
+    .order('numero');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listarParcelas(solicitacaoIds) {
+  if (!solicitacaoIds.length) return [];
+  const { data, error } = await bd
+    .from('parcela')
+    .select('*, pagamento(id, valor, data, comprovante_url, autoaprovado, registrado_por)')
+    .in('solicitacao_id', solicitacaoIds)
+    .order('vencimento', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Cria a solicitação e suas parcelas. A trava de saldo vive no banco. */
+export async function criarSolicitacao(eventoId, dados, parcelas) {
+  const { data: solic, error } = await bd
+    .from('solicitacao')
+    .insert({
+      evento_id: eventoId,
+      item_id: dados.item_id,
+      fornecedor_id: dados.fornecedor_id || null,
+      valor: Number(dados.valor),
+      justificativa: dados.justificativa?.trim() || null,
+      solicitante_id: sessao.usuario.id,
+    })
+    .select().single();
+  if (error) throw new Error(traduzErro(error.message));
+
+  const linhas = parcelas.map(p => ({
+    solicitacao_id: solic.id,
+    vencimento: p.vencimento || null,
+    valor: Number(p.valor),
+  }));
+  const { error: e2 } = await bd.from('parcela').insert(linhas);
+  if (e2) {
+    // sem parcela a solicitação não serve para nada: desfaz
+    await bd.from('solicitacao').delete().eq('id', solic.id);
+    throw new Error(traduzErro(e2.message));
+  }
+  return solic;
+}
+
+export async function aprovarSolicitacao(id) {
+  const { error } = await bd.from('solicitacao')
+    .update({ situacao: 'aprovada' }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function recusarSolicitacao(id, motivo) {
+  const { error } = await bd.from('solicitacao')
+    .update({ situacao: 'rejeitada', motivo_recusa: motivo?.trim() || null }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function cancelarSolicitacao(id) {
+  const { error } = await bd.from('solicitacao')
+    .update({ situacao: 'cancelada' }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
 /* ── permissões do usuário no evento ───────────────── */
 
 export async function minhaPermissao(eventoId) {

@@ -5,16 +5,23 @@
 import { buscarEvento, listarItens, minhaPermissao } from './nucleo.js';
 import { esc, aviso, moeda, numero, periodo, iniciais, SITUACAO_EVENTO } from './ui.js';
 import { abaProducao } from './producao.js';
+import { abaSolicitacoes, abaAprovacoes } from './solicitacoes.js';
 
 export const contexto = { evento: null, permissao: null, itens: [], aba: 'painel' };
 
 const ABAS = [
-  { id: 'painel',      rotulo: 'Painel' },
-  { id: 'producao',    rotulo: 'Produção' },
-  { id: 'solicitacoes',rotulo: 'Solicitações', embreve: true },
-  { id: 'receitas',    rotulo: 'Receitas',     embreve: true },
-  { id: 'bilheteria',  rotulo: 'Bilheteria',   embreve: true },
+  { id: 'painel',       rotulo: 'Painel' },
+  { id: 'producao',     rotulo: 'Produção' },
+  { id: 'solicitacoes', rotulo: 'Solicitações' },
+  { id: 'aprovacoes',   rotulo: 'Aprovações', perm: 'aprovar_pagamento' },
+  { id: 'receitas',     rotulo: 'Receitas',   embreve: true },
+  { id: 'bilheteria',   rotulo: 'Bilheteria', embreve: true },
 ];
+
+function abasVisiveis() {
+  const p = contexto.permissao || {};
+  return ABAS.filter(a => !a.perm || p.admin || p[a.perm]);
+}
 
 export async function telaEvento(eventoId, aba = 'painel') {
   const alvo = document.querySelector('#conteudo');
@@ -65,7 +72,7 @@ function desenhar() {
     </div>
 
     <nav class="abas">
-      ${ABAS.map(a => `
+      ${abasVisiveis().map(a => `
         <button class="aba ${a.id === contexto.aba ? 'ativa' : ''} ${a.embreve ? 'embreve' : ''}"
                 data-aba="${a.id}" ${a.embreve ? 'disabled' : ''}>
           ${esc(a.rotulo)}${a.embreve ? '<span class="tag-breve">em breve</span>' : ''}
@@ -83,8 +90,10 @@ function desenhar() {
   });
 
   const corpo = alvo.querySelector('#aba-conteudo');
-  if (contexto.aba === 'producao') abaProducao(corpo);
-  else abaPainel(corpo);
+  if (contexto.aba === 'producao')          abaProducao(corpo);
+  else if (contexto.aba === 'solicitacoes') abaSolicitacoes(corpo);
+  else if (contexto.aba === 'aprovacoes')   abaAprovacoes(corpo);
+  else                                       abaPainel(corpo);
 }
 
 /* ── painel do evento ──────────────────────────────── */
