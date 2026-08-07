@@ -10,6 +10,8 @@ import {
 } from './ui.js';
 import { telaLogin } from './login.js';
 import { telaEventos } from './eventos.js';
+import { telaUsuarios } from './usuarios.js';
+import { telaFornecedores } from './fornecedores.js';
 
 aplicarTema(temaAtual());
 iniciarModal();
@@ -55,11 +57,31 @@ async function entrarNoSistema() {
 
 /* ── estrutura interna ─────────────────────────────── */
 
+const SECOES = [
+  { id: 'eventos',      rotulo: 'Eventos',      tela: telaEventos,      sempre: true },
+  { id: 'fornecedores', rotulo: 'Fornecedores', tela: telaFornecedores, perm: 'gerir_fornecedores' },
+  { id: 'usuarios',     rotulo: 'Usuários',     tela: telaUsuarios,     perm: 'gerir_usuarios' },
+];
+
+function secoesVisiveis() {
+  const m = sessao.membros[0];
+  const admin = m && (m.papel === 'mestre' || m.papel === 'administrador');
+  return SECOES.filter(s => s.sempre || admin || (m && m[s.perm]));
+}
+
 async function montarEstrutura() {
   const app = document.getElementById('app');
+  const secoes = secoesVisiveis();
+
   app.innerHTML = `
     <header class="topo">
       <span class="marca">${esc(APP.nome)}</span>
+      ${secoes.length > 1 ? `
+        <nav class="navegacao">
+          ${secoes.map((s, i) => `
+            <button class="nav-item ${i === 0 ? 'ativo' : ''}" data-secao="${s.id}">${esc(s.rotulo)}</button>
+          `).join('')}
+        </nav>` : ''}
       <div class="espaco"></div>
       <button class="avatar" id="btn-conta" aria-label="Sua conta">${esc(iniciais(sessao.usuario.nome))}</button>
     </header>
@@ -73,7 +95,20 @@ async function montarEstrutura() {
     alternarMenuConta();
   });
 
+  app.querySelectorAll('[data-secao]').forEach(b => {
+    b.addEventListener('click', () => irPara(b.dataset.secao));
+  });
+
   await telaEventos();
+}
+
+async function irPara(id) {
+  const secao = SECOES.find(s => s.id === id);
+  if (!secao) return;
+  document.querySelectorAll('[data-secao]').forEach(b =>
+    b.classList.toggle('ativo', b.dataset.secao === id));
+  try { await secao.tela(); }
+  catch (e) { aviso(e.message, 'erro'); }
 }
 
 /* ── menu da conta ─────────────────────────────────── */

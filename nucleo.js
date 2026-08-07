@@ -60,6 +60,17 @@ export async function entrar(email, senha) {
   return data;
 }
 
+/** Cria conta. Os convites pendentes para este email viram acesso na entrada. */
+export async function criarConta(email, senha, nome) {
+  const { data, error } = await bd.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password: senha,
+    options: { data: { nome: nome?.trim() || null } },
+  });
+  if (error) throw new Error(traduzErro(error.message));
+  return { precisaConfirmar: !data.session, usuario: data.user };
+}
+
 export async function sair() {
   await bd.auth.signOut();
   sessao.usuario = null;
@@ -98,6 +109,11 @@ export async function sessaoAtual() {
 export async function carregarSessao() {
   const s = await sessaoAtual();
   if (!s) { sessao.usuario = null; sessao.membros = []; return null; }
+
+  // Convites pendentes para este email viram vínculo agora.
+  // Cobre tanto quem acabou de criar conta quanto quem já tinha
+  // conta de outra produtora e foi convidado para esta.
+  try { await bd.rpc('aceitar_convites'); } catch (e) { console.warn('convites:', e.message); }
 
   const { data: perfil, error } = await comPrazo(
     bd.from('usuario').select('id, nome, cpf, telefone').eq('id', s.user.id).maybeSingle(),
@@ -229,6 +245,150 @@ export async function criarFontes(eventoId, nomes) {
   const { data, error } = await bd.from('fonte_pagamento').insert(linhas).select();
   if (error) throw new Error(traduzErro(error.message));
   return data;
+}
+
+/* ── usuários da empresa ───────────────────────────── */
+
+export async function listarMembros(empresaId) {
+  const { data, error } = await bd
+    .from('membro')
+    .select('id, papel, ativo, ver_painel, gerir_custos_adm, gerir_fornecedores, gerir_usuarios, criar_eventos, usuario:usuario_id (id, nome, cpf, telefone)')
+    .eq('empresa_id', empresaId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listarConvites(empresaId) {
+  const { data, error } = await bd
+    .from('convite')
+    .select('id, email, nome, papel, criado_em')
+    .eq('empresa_id', empresaId)
+    .is('aceito_em', null)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function convidar({ empresaId, email, nome, papel, permissoesEmpresa, permissoesEventos }) {
+  const { data, error } = await bd
+    .from('convite')
+    .insert({
+      empresa_id: empresaId,
+      email: email.trim().toLowerCase(),
+      nome: nome?.trim() || null,
+      papel,
+      permissoes_empresa: permissoesEmpresa || {},
+      permissoes_eventos: permissoesEventos || [],
+      criado_por: sessao.usuario?.id || null,
+    })
+    .select()
+    .single();
+  if (error) {
+    if (String(error.message).includes('duplicate')) {
+      throw new Error('Já existe um convite pendente para este email.');
+    }
+    throw new Error(traduzErro(error.message));
+  }
+  return data;
+}
+
+export async function cancelarConvite(id) {
+  const { error } = await bd.from('convite').delete().eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function alterarMembro(id, campos) {
+  const { error } = await bd.from('membro').update(campos).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/* ── permissões por evento ─────────────────────────── */
+
+export async function listarPermissoes(eventoId) {
+  const { data, error } = await bd
+    .from('permissao')
+    .select('*, usuario:usuario_id (id, nome)')
+    .eq('evento_id', eventoId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function salvarPermissao(eventoId, usuarioId, campos) {
+  const { error } = await bd
+    .from('permissao')
+    .upsert({ evento_id: eventoId, usuario_id: usuarioId, ...campos },
+            { onConflict: 'evento_id,usuario_id' });
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function removerPermissao(eventoId, usuarioId) {
+  const { error } = await bd
+    .from('permissao').delete()
+    .eq('evento_id', eventoId).eq('usuario_id', usuarioId);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/* ── fornecedores ──────────────────────────────────── */
+
+export async function listarFornecedores(empresaId) {
+  const { data, error } = await bd
+    .from('fornecedor')
+    .select('id, nome, documento, contato, email, telefone, observacoes, ativo')
+    .eq('empresa_id', empresaId)
+    .order('nome');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function salvarFornecedor(empresaId, id, dados) {
+  const linha = {
+    nome: dados.nome?.trim(),
+    documento: dados.documento?.trim() || null,
+    contato: dados.contato?.trim() || null,
+    email: dados.email?.trim() || null,
+    telefone: dados.telefone?.trim() || null,
+    observacoes: dados.observacoes?.trim() || null,
+  };
+  const q = id
+    ? bd.from('fornecedor').update(linha).eq('id', id)
+    : bd.from('fornecedor').insert({ ...linha, empresa_id: empresaId });
+  const { data, error } = await q.select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+export async function alternarFornecedor(id, ativo) {
+  const { error } = await bd.from('fornecedor').update({ ativo }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/** Meios de pagamento. Visíveis apenas a quem confirma pagamento. */
+export async function listarMeiosPagamento(fornecedorId) {
+  const { data, error } = await bd
+    .from('fornecedor_pagamento')
+    .select('*')
+    .eq('fornecedor_id', fornecedorId)
+    .order('atualizado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function salvarMeioPagamento(fornecedorId, id, dados) {
+  const linha = {
+    tipo: dados.tipo,
+    chave_pix: dados.chave_pix?.trim() || null,
+    banco: dados.banco?.trim() || null,
+    agencia: dados.agencia?.trim() || null,
+    conta: dados.conta?.trim() || null,
+    titular: dados.titular?.trim() || null,
+    atualizado_em: new Date().toISOString(),
+    atualizado_por: sessao.usuario?.id || null,
+  };
+  const q = id
+    ? bd.from('fornecedor_pagamento').update(linha).eq('id', id)
+    : bd.from('fornecedor_pagamento').insert({ ...linha, fornecedor_id: fornecedorId });
+  const { error } = await q;
+  if (error) throw new Error(traduzErro(error.message));
 }
 
 /* ── arquivos ──────────────────────────────────────── */

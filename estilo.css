@@ -250,6 +250,43 @@ select.controle { cursor: pointer; }
 
 .conteudo { max-width: 1080px; margin: 0 auto; padding: 20px 16px 60px; }
 
+/* ── navegação ─────────────────────────────────────── */
+.navegacao {
+  display: flex; gap: 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.navegacao::-webkit-scrollbar { display: none; }
+.nav-item {
+  padding: 6px 12px;
+  font-family: inherit; font-size: 14px;
+  color: var(--texto-2);
+  background: none; border: none; border-radius: var(--raio);
+  cursor: pointer; white-space: nowrap;
+  transition: background var(--transicao), color var(--transicao);
+}
+.nav-item:hover { background: var(--superficie-2); color: var(--texto); }
+.nav-item.ativo { background: var(--acento-fundo); color: var(--acento-texto); font-weight: 500; }
+
+/* ── linhas de lista ───────────────────────────────── */
+.linha-lista {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--borda);
+}
+.linha-lista:last-child { border-bottom: none; }
+
+/* ── caixas de permissão ───────────────────────────── */
+.caixa-perm {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 14px; cursor: pointer; font-weight: 400;
+  margin-bottom: 0;
+}
+.caixa-perm input { margin-top: 3px; flex-shrink: 0; }
+.caixa-perm .rot { display: block; color: var(--texto); }
+.caixa-perm .desc { display: block; font-size: 12px; color: var(--texto-3); }
+.caixa-perm.pequena { font-size: 13px; }
+
 .pagina-topo {
   display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   margin-bottom: 20px;
