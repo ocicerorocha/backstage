@@ -16,6 +16,11 @@ iniciarModal();
 
 /* ── partida ───────────────────────────────────────── */
 
+function passo(texto) {
+  const el = document.getElementById('carregando-texto');
+  if (el) el.textContent = texto;
+}
+
 async function iniciar() {
   // Chegada pelo link de recuperação de senha
   const hash = new URLSearchParams(window.location.hash.slice(1));
@@ -24,13 +29,22 @@ async function iniciar() {
   }
 
   try {
+    passo('Verificando sua sessão...');
     const usuario = await carregarSessao();
     if (!usuario) return telaLogin(entrarNoSistema);
+    passo('Carregando seus dados...');
     await montarEstrutura();
   } catch (e) {
     console.error(e);
-    aviso('Não consegui carregar seus dados: ' + e.message, 'erro', 6000);
-    telaLogin(entrarNoSistema);
+    // Sessão inválida ou perfil ausente não é motivo para travar:
+    // devolve para o login, que é a ação útil.
+    if (String(e.message || '').match(/jwt|session|token|not authenticated/i)) {
+      return telaLogin(entrarNoSistema);
+    }
+    window.BACKSTAGE_FALHA?.(
+      'Consegui conectar, mas falhei ao carregar seus dados.',
+      String(e.message || e)
+    );
   }
 }
 

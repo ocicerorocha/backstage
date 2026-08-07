@@ -11,7 +11,23 @@
 <body>
 
   <div id="carregando" class="tela-carregando">
-    <div class="girando"></div>
+    <div style="text-align:center;max-width:520px;padding:24px">
+      <div class="girando" style="margin:0 auto 14px"></div>
+      <div id="carregando-texto" style="font-size:14px;color:var(--texto-2)">Carregando...</div>
+
+      <div id="falha" hidden style="margin-top:22px;text-align:left">
+        <div class="cartao" style="border-color:var(--vermelho)">
+          <h3 style="color:var(--vermelho);margin-bottom:8px">Não consegui iniciar</h3>
+          <p style="font-size:14px;color:var(--texto-2);margin-bottom:12px" id="falha-dica"></p>
+          <pre id="falha-detalhe" style="font-size:12px;background:var(--superficie-2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;white-space:pre-wrap;word-break:break-word"></pre>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="botao" onclick="location.reload()">Tentar de novo</button>
+            <button class="botao" id="btn-copiar">Copiar erro</button>
+            <a class="botao" href="diagnostico.html">Abrir diagnóstico</a>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="app" hidden></div>
@@ -27,6 +43,58 @@
     </div>
   </div>
 
-<script type="module" src="js/app.js"></script>
+<script>
+// Rede de segurança: roda ANTES dos módulos, para que qualquer falha
+// apareça na tela em vez de deixar o usuário olhando um giro infinito.
+(function () {
+  var mostrado = false;
+
+  window.BACKSTAGE_FALHA = function (dica, detalhe) {
+    if (mostrado) return;
+    mostrado = true;
+    var f = document.getElementById('falha');
+    if (!f) return;
+    document.getElementById('carregando-texto').textContent = '';
+    document.querySelector('#carregando .girando').style.display = 'none';
+    document.getElementById('falha-dica').textContent = dica || '';
+    document.getElementById('falha-detalhe').textContent = detalhe || '(sem detalhes)';
+    f.hidden = false;
+  };
+
+  window.addEventListener('error', function (e) {
+    if (e.message) window.BACKSTAGE_FALHA(
+      'Algo quebrou ao carregar a aplicação.',
+      e.message + (e.filename ? '\n' + e.filename + ':' + e.lineno : '')
+    );
+  });
+
+  window.addEventListener('unhandledrejection', function (e) {
+    var m = (e.reason && (e.reason.message || e.reason)) || 'erro desconhecido';
+    window.BACKSTAGE_FALHA('Uma operação falhou.', String(m));
+  });
+
+  // Se em 15 segundos o aplicativo não apareceu, algo travou.
+  setTimeout(function () {
+    var app = document.getElementById('app');
+    if (app && app.hidden) {
+      window.BACKSTAGE_FALHA(
+        'Demorou demais para carregar. Normalmente é a biblioteca externa bloqueada pela rede — ' +
+        'tente outra conexão (dados do celular, por exemplo) ou abra o diagnóstico.',
+        'Tempo esgotado após 15 segundos.'
+      );
+    }
+  }, 15000);
+
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'btn-copiar') {
+      var t = document.getElementById('falha-detalhe').textContent;
+      navigator.clipboard && navigator.clipboard.writeText(t);
+      e.target.textContent = 'Copiado';
+    }
+  });
+})();
+</script>
+
+<script type="module" src="js/app.js" onerror="window.BACKSTAGE_FALHA('Não consegui carregar o arquivo js/app.js.','Confira se a pasta js subiu junto com o index.html.')"></script>
 </body>
 </html>
