@@ -2,7 +2,7 @@
 // Backstage — inicialização e estrutura
 // ═══════════════════════════════════════════════════════
 
-import { bd, sessao, carregarSessao, sair, salvarPerfil } from './nucleo.js';
+import { bd, sessao, carregarSessao, sair, salvarPerfil, empresaAtual } from './nucleo.js';
 import { APP } from './config.js';
 import {
   esc, aviso, iniciarModal, abrirModal, fecharModal, comBotao,
@@ -12,6 +12,7 @@ import { telaLogin } from './login.js';
 import { telaEventos } from './eventos.js';
 import { telaUsuarios } from './usuarios.js';
 import { telaFornecedores } from './fornecedores.js';
+import { telaProdutora } from './produtora.js';
 
 aplicarTema(temaAtual());
 iniciarModal();
@@ -61,6 +62,7 @@ const SECOES = [
   { id: 'eventos',      rotulo: 'Eventos',      tela: telaEventos,      sempre: true },
   { id: 'fornecedores', rotulo: 'Fornecedores', tela: telaFornecedores, perm: 'gerir_fornecedores' },
   { id: 'usuarios',     rotulo: 'Usuários',     tela: telaUsuarios,     perm: 'gerir_usuarios' },
+  { id: 'produtora',    rotulo: 'Produtora',    tela: telaProdutora,    sempre: true },
 ];
 
 function secoesVisiveis() {
@@ -72,10 +74,18 @@ function secoesVisiveis() {
 async function montarEstrutura() {
   const app = document.getElementById('app');
   const secoes = secoesVisiveis();
+  const empresa = empresaAtual();
 
   app.innerHTML = `
     <header class="topo">
       <span class="marca">${esc(APP.nome)}</span>
+      ${empresa ? `
+        <span class="topo-empresa" title="Produtora em que você está operando">
+          ${empresa.logo_url
+            ? `<img src="${esc(empresa.logo_url)}" alt="">`
+            : `<span class="sigla">${esc(iniciais(empresa.nome))}</span>`}
+          <span class="nome">${esc(empresa.nome)}</span>
+        </span>` : ''}
       ${secoes.length > 1 ? `
         <nav class="navegacao">
           ${secoes.map((s, i) => `
@@ -97,6 +107,12 @@ async function montarEstrutura() {
 
   app.querySelectorAll('[data-secao]').forEach(b => {
     b.addEventListener('click', () => irPara(b.dataset.secao));
+  });
+
+  document.addEventListener('produtora-alterada', () => {
+    const e = empresaAtual();
+    const alvo = app.querySelector('.topo-empresa .nome');
+    if (alvo && e) alvo.textContent = e.nome;
   });
 
   await telaEventos();

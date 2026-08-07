@@ -57,7 +57,7 @@ export async function telaEventos() {
       <div class="espaco"></div>
       ${podeCriar ? `<button class="botao botao-primario" id="novo">Novo evento</button>` : ''}
     </div>
-    ${[...grupos.values()].map(g => grupoHTML(g, grupos.size > 1)).join('')}
+    ${[...grupos.values()].map(g => grupoHTML(g, true)).join('')}
   `;
 
   alvo.querySelector('#novo')?.addEventListener('click', () => modalEvento(null, telaEventos));

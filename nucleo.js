@@ -160,6 +160,29 @@ export function empresasOndeCrio() {
     .map(m => m.empresa);
 }
 
+/** Produtora em que estou operando agora. */
+export function empresaAtual() {
+  return sessao.membros[0]?.empresa || null;
+}
+
+export async function salvarEmpresa(id, dados) {
+  const { data, error } = await bd
+    .from('empresa')
+    .update({
+      nome: dados.nome?.trim(),
+      cnpj: dados.cnpj?.trim() || null,
+      ...(dados.logo_url !== undefined ? { logo_url: dados.logo_url } : {}),
+    })
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw new Error(traduzErro(error.message));
+  // reflete na sessão sem precisar recarregar tudo
+  const m = sessao.membros.find(x => x.empresa?.id === id);
+  if (m) Object.assign(m.empresa, data);
+  return data;
+}
+
 export function souAdmin(empresaId) {
   const m = sessao.membros.find(x => x.empresa?.id === empresaId);
   return !!m && (m.papel === 'mestre' || m.papel === 'administrador');

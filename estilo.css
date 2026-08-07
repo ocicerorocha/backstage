@@ -250,6 +250,32 @@ select.controle { cursor: pointer; }
 
 .conteudo { max-width: 1080px; margin: 0 auto; padding: 20px 16px 60px; }
 
+/* ── produtora no topo ─────────────────────────────── */
+.topo-empresa {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 10px 4px 4px;
+  background: var(--superficie-2);
+  border-radius: 20px;
+  font-size: 13px;
+  max-width: 200px;
+  flex-shrink: 0;
+}
+.topo-empresa img,
+.topo-empresa .sigla {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--acento-fundo);
+  color: var(--acento-texto);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 600;
+}
+.topo-empresa .nome {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--texto);
+}
+@media (max-width: 600px) { .topo-empresa .nome { display: none; } }
+
 /* ── navegação ─────────────────────────────────────── */
 .navegacao {
   display: flex; gap: 2px;
