@@ -61,6 +61,12 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* O atributo hidden só vale display:none pela folha padrão do navegador,
+   que perde para qualquer regra de classe. Sem esta linha, elementos com
+   display definido (a tela de carregando, o fundo do modal) continuam
+   visíveis mesmo marcados como escondidos. */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
