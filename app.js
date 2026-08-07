@@ -13,6 +13,7 @@ import { telaEventos } from './eventos.js';
 import { telaUsuarios } from './usuarios.js';
 import { telaFornecedores } from './fornecedores.js';
 import { telaProdutora } from './produtora.js';
+import { telaPagamentos } from './pagamentos.js';
 
 aplicarTema(temaAtual());
 iniciarModal();
@@ -60,6 +61,7 @@ async function entrarNoSistema() {
 
 const SECOES = [
   { id: 'eventos',      rotulo: 'Eventos',      tela: telaEventos,      sempre: true },
+  { id: 'pagamentos',   rotulo: 'Pagamentos',   tela: telaPagamentos,   pagador: true },
   { id: 'fornecedores', rotulo: 'Fornecedores', tela: telaFornecedores, perm: 'gerir_fornecedores' },
   { id: 'usuarios',     rotulo: 'Usuários',     tela: telaUsuarios,     perm: 'gerir_usuarios' },
   { id: 'produtora',    rotulo: 'Produtora',    tela: telaProdutora,    sempre: true },
@@ -68,7 +70,11 @@ const SECOES = [
 function secoesVisiveis() {
   const m = sessao.membros[0];
   const admin = m && (m.papel === 'mestre' || m.papel === 'administrador');
-  return SECOES.filter(s => s.sempre || admin || (m && m[s.perm]));
+  // A agenda é de quem paga: administradores, ou quem tem a
+  // permissão de confirmar pagamento em algum evento.
+  const pagador = admin || sessao.permissoesPagamento === true;
+  return SECOES.filter(s =>
+    s.sempre || admin || (s.pagador && pagador) || (s.perm && m && m[s.perm]));
 }
 
 async function montarEstrutura() {

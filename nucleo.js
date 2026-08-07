@@ -45,8 +45,9 @@ export function limparSessaoLocal() {
 
 // Estado da sessão em memória
 export const sessao = {
-  usuario: null,   // { id, email, nome, cpf, telefone }
-  membros: [],     // vínculos com empresas
+  usuario: null,             // { id, email, nome, cpf, telefone }
+  membros: [],               // vínculos com empresas
+  permissoesPagamento: false // confirma pagamento em algum evento?
 };
 
 /* ── autenticação ──────────────────────────────────── */
@@ -138,6 +139,14 @@ export async function carregarSessao() {
   if (e2) throw e2;
 
   sessao.membros = membros || [];
+
+  // quem confirma pagamento em pelo menos um evento enxerga a agenda
+  try {
+    const { data: p } = await bd.from('permissao')
+      .select('id').eq('usuario_id', s.user.id).eq('confirmar_pagamento', true).limit(1);
+    sessao.permissoesPagamento = !!(p && p.length);
+  } catch (e) { sessao.permissoesPagamento = false; }
+
   return sessao.usuario;
 }
 
@@ -638,6 +647,88 @@ export async function cancelarSolicitacao(id) {
   const { error } = await bd.from('solicitacao')
     .update({ situacao: 'cancelada' }).eq('id', id);
   if (error) throw new Error(traduzErro(error.message));
+}
+
+/* ── agenda de pagamentos ──────────────────────────── */
+
+/** Tudo que está aprovado e ainda devendo, em todos os eventos da produtora. */
+export async function listarAgenda(empresaId) {
+  const { data, error } = await bd
+    .from('agenda_pagamento')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('vencimento', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return (data || []).filter(p => Number(p.falta) > 0.005);
+}
+
+export async function adiamentosDasParcelas() {
+  const { data, error } = await bd.from('parcela_adiamentos').select('*');
+  if (error) { console.warn('adiamentos:', error.message); return []; }
+  return data || [];
+}
+
+export async function pagamentosDaParcela(parcelaId) {
+  const { data, error } = await bd
+    .from('pagamento')
+    .select('*, usuario:registrado_por (nome)')
+    .eq('parcela_id', parcelaId)
+    .order('criado_em');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function registrarPagamento(parcelaId, dados) {
+  const { data, error } = await bd
+    .from('pagamento')
+    .insert({
+      parcela_id: parcelaId,
+      valor: Number(dados.valor),
+      data: dados.data || new Date().toISOString().slice(0, 10),
+      fonte_id: dados.fonte_id || null,
+      comprovante_url: dados.comprovante_url || null,
+      observacao: dados.observacao?.trim() || null,
+    })
+    .select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+export async function estornarPagamento(pagamentoId, motivo) {
+  const { error } = await bd.rpc('estornar_pagamento',
+    { p_pagamento: pagamentoId, p_motivo: motivo || '' });
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function adiarParcela(parcelaId, novaData, motivo) {
+  const { error } = await bd.rpc('adiar_parcela',
+    { p_parcela: parcelaId, p_data: novaData, p_motivo: motivo || '' });
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function marcarUrgente(parcelaId, urgente) {
+  const { error } = await bd.rpc('marcar_urgente',
+    { p_parcela: parcelaId, p_urgente: !!urgente });
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/** Comprovante vai para depósito fechado: só quem está autenticado enxerga. */
+export async function enviarComprovante(arquivo) {
+  const ext = (arquivo.name.split('.').pop() || 'jpg').toLowerCase();
+  const caminho = `${new Date().getFullYear()}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await bd.storage
+    .from('comprovantes')
+    .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+  if (error) throw new Error(traduzErro(error.message));
+  return caminho;
+}
+
+/** Link temporário para ver um comprovante. */
+export async function linkComprovante(caminho) {
+  const { data, error } = await bd.storage
+    .from('comprovantes').createSignedUrl(caminho, 300);
+  if (error) throw new Error(traduzErro(error.message));
+  return data.signedUrl;
 }
 
 /* ── permissões do usuário no evento ───────────────── */

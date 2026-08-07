@@ -574,3 +574,33 @@ select.controle { cursor: pointer; }
   transition: border-color var(--transicao), background var(--transicao);
 }
 .area-arquivo:hover { border-color: var(--acento); background: var(--acento-fundo); }
+
+/* ── agenda de pagamentos ──────────────────────────── */
+.dia-cabeca {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  padding: 16px 2px 8px;
+  font-size: 14px; font-weight: 500;
+  border-bottom: 1px solid var(--borda);
+  margin-bottom: 10px;
+}
+.dia-cabeca .num { margin-left: auto; font-weight: 600; }
+.dia-cabeca .acumulado {
+  width: 100%; font-size: 12px; font-weight: 400; color: var(--texto-3);
+}
+.dia-cabeca.vencido { color: var(--vermelho); border-bottom-color: var(--vermelho); }
+
+.pag-cartao {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: var(--raio-g);
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.pag-cartao .marca {
+  width: 4px; align-self: stretch; flex-shrink: 0;
+  border-radius: 2px; background: var(--borda-forte);
+}
+.pag-cartao.vencido { border-color: var(--vermelho); }
+.pag-cartao.vencido .marca { background: var(--vermelho); }
+.pag-cartao.urgente .marca { background: var(--ambar); }
