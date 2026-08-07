@@ -11,6 +11,7 @@ import {
   esc, aviso, abrirModal, fecharModal, comBotao,
   periodo, numero, iniciais, SITUACAO_EVENTO,
 } from './ui.js';
+import { telaEvento } from './evento.js';
 
 const FONTES_SUGERIDAS = ['Conta própria', 'Bilheteria', 'Patrocinador'];
 
@@ -62,7 +63,13 @@ export async function telaEventos() {
 
   alvo.querySelector('#novo')?.addEventListener('click', () => modalEvento(null, telaEventos));
   alvo.querySelectorAll('[data-evento]').forEach(el => {
-    el.addEventListener('click', () => modalEvento(el.dataset.evento, telaEventos));
+    el.addEventListener('click', () => telaEvento(el.dataset.evento));
+  });
+  alvo.querySelectorAll('[data-config]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      modalEvento(el.dataset.config, telaEventos);
+    });
   });
 }
 
@@ -99,6 +106,8 @@ function cartaoHTML(ev) {
           ${ev.publico_estimado
             ? `<span style="font-size:12px;color:var(--texto-3)">${numero(ev.publico_estimado)} pessoas</span>`
             : ''}
+          <span style="flex:1"></span>
+          <span class="botao-icone" data-config="${esc(ev.id)}" title="Editar dados do evento">&#9881;</span>
         </div>
       </div>
     </button>`;

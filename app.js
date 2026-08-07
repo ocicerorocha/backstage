@@ -109,6 +109,8 @@ async function montarEstrutura() {
     b.addEventListener('click', () => irPara(b.dataset.secao));
   });
 
+  document.addEventListener('voltar-eventos', () => irPara('eventos'));
+
   document.addEventListener('produtora-alterada', () => {
     const e = empresaAtual();
     const alvo = app.querySelector('.topo-empresa .nome');

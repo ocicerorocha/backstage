@@ -414,6 +414,147 @@ export async function salvarMeioPagamento(fornecedorId, id, dados) {
   if (error) throw new Error(traduzErro(error.message));
 }
 
+/* ── categorias ────────────────────────────────────── */
+
+export async function listarCategorias(empresaId, tipo = 'despesa') {
+  const { data, error } = await bd
+    .from('categoria')
+    .select('id, nome, ordem, ativa')
+    .eq('empresa_id', empresaId)
+    .eq('tipo', tipo)
+    .eq('ativa', true)
+    .order('ordem');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function criarCategoria(empresaId, tipo, nome) {
+  const { data, error } = await bd
+    .from('categoria')
+    .insert({ empresa_id: empresaId, tipo, nome: nome.trim(), ordem: 99 })
+    .select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+/* ── itens de produção ─────────────────────────────── */
+
+export async function listarItens(eventoId) {
+  const { data, error } = await bd
+    .from('item_producao_visao')
+    .select('*')
+    .eq('evento_id', eventoId)
+    .order('numero');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function salvarItem(eventoId, id, dados) {
+  const linha = {
+    descricao: dados.descricao?.trim(),
+    categoria_id: dados.categoria_id || null,
+    fornecedor_id: dados.fornecedor_id || null,
+    valor_orcado: Number(dados.valor_orcado) || 0,
+    custo_referencia: dados.custo_referencia === '' || dados.custo_referencia == null
+      ? null : Number(dados.custo_referencia),
+    situacao: dados.situacao || 'orcado',
+    eh_verba: !!dados.eh_verba,
+    observacoes: dados.observacoes?.trim() || null,
+    quantidade: dados.quantidade ? Number(dados.quantidade) : null,
+    dias: dados.dias ? Number(dados.dias) : null,
+    valor_unitario: dados.valor_unitario ? Number(dados.valor_unitario) : null,
+  };
+  const q = id
+    ? bd.from('item_producao').update(linha).eq('id', id)
+    : bd.from('item_producao').insert({ ...linha, evento_id: eventoId, criado_por: sessao.usuario?.id || null });
+  const { data, error } = await q.select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+export async function apagarItem(id) {
+  const { error } = await bd.from('item_producao').delete().eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/** Grava vários itens de uma vez. Usado pela importação. */
+export async function criarItensEmLote(eventoId, linhas) {
+  const prontos = linhas.map(l => ({
+    evento_id: eventoId,
+    descricao: l.descricao,
+    categoria_id: l.categoria_id || null,
+    valor_orcado: Number(l.valor_orcado) || 0,
+    custo_referencia: l.custo_referencia == null ? null : Number(l.custo_referencia),
+    situacao: l.situacao || 'orcado',
+    criado_por: sessao.usuario?.id || null,
+  }));
+  const { data, error } = await bd.from('item_producao').insert(prontos).select('id');
+  if (error) throw new Error(traduzErro(error.message));
+  return data || [];
+}
+
+export async function registrarImportacao(eventoId, info) {
+  const { error } = await bd.from('importacao').insert({
+    evento_id: eventoId,
+    arquivo: info.arquivo || null,
+    mapeamento: info.mapeamento || {},
+    linhas_lidas: info.lidas || 0,
+    linhas_criadas: info.criadas || 0,
+    descartes: info.descartes || [],
+    feita_por: sessao.usuario?.id || null,
+  });
+  if (error) console.warn('registro da importação falhou:', error.message);
+}
+
+/* ── prestação de contas ───────────────────────────── */
+
+export async function listarPrestacao(itemId) {
+  const { data, error } = await bd
+    .from('prestacao_conta')
+    .select('*')
+    .eq('item_id', itemId)
+    .order('data', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function salvarPrestacao(itemId, id, dados) {
+  const linha = {
+    descricao: dados.descricao?.trim(),
+    valor: Number(dados.valor) || 0,
+    data: dados.data || null,
+    comprovante_url: dados.comprovante_url || null,
+  };
+  const q = id
+    ? bd.from('prestacao_conta').update(linha).eq('id', id)
+    : bd.from('prestacao_conta').insert({ ...linha, item_id: itemId, lancado_por: sessao.usuario?.id || null });
+  const { error } = await q;
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function apagarPrestacao(id) {
+  const { error } = await bd.from('prestacao_conta').delete().eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/* ── permissões do usuário no evento ───────────────── */
+
+export async function minhaPermissao(eventoId) {
+  const emp = empresaAtual();
+  if (emp && souAdmin(emp.id)) {
+    return {
+      admin: true, ver_evento: true, editar_producao: true, criar_solicitacao: true,
+      aprovar_pagamento: true, confirmar_pagamento: true, ver_receitas: true,
+      lancar_receitas: true, exportar: true, teto_aprovacao: null,
+    };
+  }
+  const { data } = await bd
+    .from('permissao').select('*')
+    .eq('evento_id', eventoId).eq('usuario_id', sessao.usuario.id)
+    .maybeSingle();
+  return { admin: false, ...(data || { ver_evento: true }) };
+}
+
 /* ── arquivos ──────────────────────────────────────── */
 
 export async function enviarLogo(arquivo, prefixo = 'evento') {
