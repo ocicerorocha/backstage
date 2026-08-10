@@ -55,19 +55,31 @@ let _filtroCategorias = new Set();  // categoria_id (várias ao mesmo tempo)
 let _filtroSituacoes = new Set();   // situação manual (várias)
 let _filtroAndamentos = new Set();  // andamento financeiro (várias)
 let _busca = '';
+let _menuAberto = null;     // qual dropdown de filtro está aberto
+let _fecharMenu = null;     // handler de clique-fora, guardado para remover depois
 
-// Um grupo de chips clicáveis. Cada chip liga/desliga um valor do filtro.
-function grupoChips(rotulo, grupo, opcoes, selecionadas) {
+// Um filtro compacto: botão que abre uma lista de checkboxes.
+// Multi-seleção, mas ocupa só o espaço de um botão quando fechado.
+function filtroMenu(rotulo, grupo, opcoes, selecionadas) {
   if (!opcoes.length) return '';
+  const n = selecionadas.size;
+  const aberto = _menuAberto === grupo;
   return `
-    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-      <span style="font-size:12px;color:var(--texto-3);min-width:78px">${rotulo}</span>
-      ${opcoes.map(([id, rot]) => {
-        const ativo = selecionadas.has(id);
-        return `<button type="button" class="etiqueta ${ativo ? 'etiqueta-acento' : 'etiqueta-neutra'}"
-          data-chip="${grupo}" data-valor="${esc(id)}"
-          style="cursor:pointer;border:none;font:inherit${ativo ? '' : ';opacity:.7'}">${esc(rot)}</button>`;
-      }).join('')}
+    <div class="filtro-drop" style="position:relative;display:inline-block">
+      <button type="button" class="botao" data-menu="${grupo}"
+        style="height:36px${n ? ';border-color:var(--acento);color:var(--acento)' : ''}">
+        ${rotulo}${n ? ` · ${n}` : ''} <span style="opacity:.55;font-size:11px">▾</span>
+      </button>
+      ${aberto ? `
+        <div style="position:absolute;z-index:40;top:calc(100% + 4px);left:0;min-width:190px;max-height:264px;
+                    overflow:auto;background:var(--superficie-2);border:1px solid var(--borda);
+                    border-radius:var(--raio);box-shadow:0 10px 26px rgba(0,0,0,.22);padding:6px">
+          ${opcoes.map(([id, rot]) => `
+            <label style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:14px">
+              <input type="checkbox" data-opt="${grupo}" value="${esc(id)}" ${selecionadas.has(id) ? 'checked' : ''}>
+              <span>${esc(rot)}</span>
+            </label>`).join('')}
+        </div>` : ''}
     </div>`;
 }
 
@@ -116,17 +128,14 @@ function desenhar(alvo) {
   alvo.innerHTML = `
     <div class="barra-filtros">
       <input class="controle" id="p-busca" placeholder="Buscar item, número ou fornecedor"
-             value="${esc(_busca)}" style="flex:1;min-width:180px">
+             value="${esc(_busca)}" style="flex:1;min-width:160px">
+      ${filtroMenu('Categoria', 'cat', _categorias.map(c => [c.id, c.nome]), _filtroCategorias)}
+      ${filtroMenu('Situação', 'sit', Object.entries(SITUACOES).map(([v, s]) => [v, s.rotulo]), _filtroSituacoes)}
+      ${filtroMenu('Andamento', 'and', Object.entries(ANDAMENTO).map(([v, a]) => [v, a.rotulo]), _filtroAndamentos)}
+      ${temFiltro ? `<button class="botao" id="p-limpar" style="height:36px">Limpar</button>` : ''}
       ${podeEditar && aberto ? `
         <button class="botao" id="p-importar">Importar planilha</button>
         <button class="botao botao-primario" id="p-novo">Novo item</button>` : ''}
-    </div>
-
-    <div style="display:flex;flex-direction:column;gap:8px;margin:2px 0 16px">
-      ${grupoChips('Categoria', 'cat', _categorias.map(c => [c.id, c.nome]), _filtroCategorias)}
-      ${grupoChips('Situação', 'sit', Object.entries(SITUACOES).map(([v, s]) => [v, s.rotulo]), _filtroSituacoes)}
-      ${grupoChips('Andamento', 'and', Object.entries(ANDAMENTO).map(([v, a]) => [v, a.rotulo]), _filtroAndamentos)}
-      ${temFiltro ? `<div style="padding-left:84px"><button class="botao" id="p-limpar" style="height:28px;font-size:12px">Limpar filtros</button></div>` : ''}
     </div>
 
     ${itens.length ? `
@@ -179,17 +188,37 @@ function desenhar(alvo) {
     const n = alvo.querySelector('#p-busca');
     n.focus(); n.setSelectionRange(n.value.length, n.value.length);
   });
-  alvo.querySelectorAll('[data-chip]').forEach(el =>
-    el.addEventListener('click', () => {
-      const g = el.dataset.chip, v = el.dataset.valor;
+  alvo.querySelectorAll('[data-menu]').forEach(el =>
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const g = el.dataset.menu;
+      _menuAberto = _menuAberto === g ? null : g;
+      desenhar(alvo);
+    }));
+  alvo.querySelectorAll('[data-opt]').forEach(el =>
+    el.addEventListener('change', () => {
+      const g = el.dataset.opt, v = el.value;
       const set = g === 'cat' ? _filtroCategorias : g === 'sit' ? _filtroSituacoes : _filtroAndamentos;
-      set.has(v) ? set.delete(v) : set.add(v);
+      el.checked ? set.add(v) : set.delete(v);
+      _menuAberto = g;   // mantém o dropdown aberto para marcar vários
       desenhar(alvo);
     }));
   q('#p-limpar')?.addEventListener('click', () => {
     _filtroCategorias.clear(); _filtroSituacoes.clear(); _filtroAndamentos.clear();
+    _menuAberto = null;
     desenhar(alvo);
   });
+  // fecha o dropdown ao clicar fora dele
+  if (_fecharMenu) { document.removeEventListener('click', _fecharMenu); _fecharMenu = null; }
+  if (_menuAberto) {
+    _fecharMenu = (ev) => {
+      if (ev.target.closest('.filtro-drop')) return;   // clique dentro: ignora
+      _menuAberto = null;
+      document.removeEventListener('click', _fecharMenu); _fecharMenu = null;
+      desenhar(alvo);
+    };
+    setTimeout(() => document.addEventListener('click', _fecharMenu), 0);
+  }
   q('#p-novo')?.addEventListener('click', () => modalItem(null));
   q('#p-novo2')?.addEventListener('click', () => modalItem(null));
   q('#p-importar')?.addEventListener('click', () => abrirImportacao(_categorias));
