@@ -584,7 +584,15 @@ export async function saldoItens(eventoId) {
   if (error) throw error;
   return data || [];
 }
-
+/** Andamento financeiro por item: solicitado, pago e em fluxo. */
+export async function andamentoItens(eventoId) {
+  const { data, error } = await bd
+    .from('item_andamento')
+    .select('*')
+    .eq('evento_id', eventoId);
+  if (error) throw error;
+  return data || [];
+}
 export async function listarParcelas(solicitacaoIds) {
   if (!solicitacaoIds.length) return [];
   const { data, error } = await bd
