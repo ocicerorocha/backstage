@@ -28,9 +28,9 @@ const SITUACOES = {
 // Andamento financeiro — segundo eixo, DERIVADO do dinheiro.
 // Nunca é campo: sai da soma das solicitações e pagamentos do item.
 const ANDAMENTO = {
-  pago:         { rotulo: 'Pago',         cor: 'var(--verde)'  },
-  pago_parcial: { rotulo: 'Pago parcial', cor: 'var(--acento)' },
   solicitado:   { rotulo: 'Solicitado',   cor: 'var(--ambar)'  },
+  pago_parcial: { rotulo: 'Pago parcial', cor: 'var(--acento)' },
+  pago:         { rotulo: 'Pago',         cor: 'var(--verde)'  },
 };
 
 // Decide o selo financeiro do item.
@@ -51,9 +51,25 @@ function andamentoDoItem(a, orcado) {
 let _categorias = [];
 let _fornecedores = [];
 let _andamento = {};        // item_id → { solicitado, pago, em_fluxo }
-let _filtroCategoria = '';
-let _filtroSituacao = '';
+let _filtroCategorias = new Set();  // categoria_id (várias ao mesmo tempo)
+let _filtroSituacoes = new Set();   // situação manual (várias)
+let _filtroAndamentos = new Set();  // andamento financeiro (várias)
 let _busca = '';
+
+// Um grupo de chips clicáveis. Cada chip liga/desliga um valor do filtro.
+function grupoChips(rotulo, grupo, opcoes, selecionadas) {
+  if (!opcoes.length) return '';
+  return `
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--texto-3);min-width:78px">${rotulo}</span>
+      ${opcoes.map(([id, rot]) => {
+        const ativo = selecionadas.has(id);
+        return `<button type="button" class="etiqueta ${ativo ? 'etiqueta-acento' : 'etiqueta-neutra'}"
+          data-chip="${grupo}" data-valor="${esc(id)}"
+          style="cursor:pointer;border:none;font:inherit${ativo ? '' : ';opacity:.7'}">${esc(rot)}</button>`;
+      }).join('')}
+    </div>`;
+}
 
 export async function abaProducao(alvo) {
   const emp = empresaAtual();
@@ -80,8 +96,10 @@ function desenhar(alvo) {
   const aberto = contexto.evento.situacao !== 'encerrado';
 
   let itens = contexto.itens;
-  if (_filtroCategoria) itens = itens.filter(i => (i.categoria_id || '') === _filtroCategoria);
-  if (_filtroSituacao)  itens = itens.filter(i => i.situacao === _filtroSituacao);
+  if (_filtroCategorias.size) itens = itens.filter(i => _filtroCategorias.has(i.categoria_id || ''));
+  if (_filtroSituacoes.size)  itens = itens.filter(i => _filtroSituacoes.has(i.situacao));
+  if (_filtroAndamentos.size)
+    itens = itens.filter(i => _filtroAndamentos.has(andamentoDoItem(_andamento[i.id], i.valor_orcado) || '—'));
   if (_busca) {
     const t = _busca.toLowerCase();
     itens = itens.filter(i =>
@@ -93,23 +111,31 @@ function desenhar(alvo) {
   const totalOrcado = itens.reduce((a, i) => a + Number(i.valor_orcado || 0), 0);
   const totalRef = itens.reduce((a, i) => a + Number(i.custo_referencia || 0), 0);
   const totalPago = itens.reduce((a, i) => a + Number(_andamento[i.id]?.pago || 0), 0);
+  const temFiltro = _busca || _filtroCategorias.size || _filtroSituacoes.size || _filtroAndamentos.size;
 
   alvo.innerHTML = `
     <div class="barra-filtros">
       <input class="controle" id="p-busca" placeholder="Buscar item, número ou fornecedor"
              value="${esc(_busca)}" style="flex:1;min-width:180px">
-      <select class="controle" id="p-cat" style="width:auto;min-width:150px">
-        <option value="">Todas as categorias</option>
-        ${_categorias.map(c => `<option value="${esc(c.id)}" ${_filtroCategoria === c.id ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}
-      </select>
-      <select class="controle" id="p-sit" style="width:auto;min-width:130px">
-        <option value="">Todas as situações</option>
-        ${Object.entries(SITUACOES).map(([v, s]) => `<option value="${v}" ${_filtroSituacao === v ? 'selected' : ''}>${s.rotulo}</option>`).join('')}
-      </select>
       ${podeEditar && aberto ? `
         <button class="botao" id="p-importar">Importar planilha</button>
         <button class="botao botao-primario" id="p-novo">Novo item</button>` : ''}
     </div>
+
+    <div style="display:flex;flex-direction:column;gap:8px;margin:2px 0 16px">
+      ${grupoChips('Categoria', 'cat', _categorias.map(c => [c.id, c.nome]), _filtroCategorias)}
+      ${grupoChips('Situação', 'sit', Object.entries(SITUACOES).map(([v, s]) => [v, s.rotulo]), _filtroSituacoes)}
+      ${grupoChips('Andamento', 'and', Object.entries(ANDAMENTO).map(([v, a]) => [v, a.rotulo]), _filtroAndamentos)}
+      ${temFiltro ? `<div style="padding-left:84px"><button class="botao" id="p-limpar" style="height:28px;font-size:12px">Limpar filtros</button></div>` : ''}
+    </div>
+
+    ${itens.length ? `
+      <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:baseline;margin-bottom:14px;padding:11px 16px;background:var(--superficie-2);border-radius:var(--raio)">
+        <div><span style="font-size:12px;color:var(--texto-3)">Itens </span><strong style="font-variant-numeric:tabular-nums">${itens.length}</strong></div>
+        <div><span style="font-size:12px;color:var(--texto-3)">Orçado </span><strong class="num">${moeda(totalOrcado)}</strong></div>
+        <div><span style="font-size:12px;color:var(--texto-3)">Pago </span><strong class="num" ${totalPago > 0 ? 'style="color:var(--verde)"' : ''}>${moeda(totalPago)}</strong></div>
+        <div><span style="font-size:12px;color:var(--texto-3)">Ano anterior </span><strong class="num" style="color:var(--texto-2)">${moeda(totalRef)}</strong></div>
+      </div>` : ''}
 
     ${!aberto ? `<p class="dica" style="margin-bottom:12px">Evento encerrado — os lançamentos estão travados.</p>` : ''}
 
@@ -132,23 +158,14 @@ function desenhar(alvo) {
           <tbody>
             ${itens.map(i => linha(i, podeEditar, podeSolicitar)).join('')}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="3">${itens.length} ${itens.length === 1 ? 'item' : 'itens'}</td>
-              <td class="num" style="color:var(--texto-2)">${moeda(totalRef)}</td>
-              <td class="num" style="font-weight:600">${moeda(totalOrcado)}</td>
-              <td class="num" style="font-weight:600;color:${totalPago > 0 ? 'var(--verde)' : 'var(--texto-3)'}">${totalPago > 0 ? moeda(totalPago) : '—'}</td>
-              <td colspan="${(podeEditar ? 1 : 0) + (podeSolicitar ? 1 : 0) + 1}"></td>
-            </tr>
-          </tfoot>
         </table>
       </div>` : `
       <div class="vazio">
-        <h3>${_busca || _filtroCategoria || _filtroSituacao ? 'Nada encontrado' : 'Nenhum item ainda'}</h3>
-        <p>${_busca || _filtroCategoria || _filtroSituacao
+        <h3>${temFiltro ? 'Nada encontrado' : 'Nenhum item ainda'}</h3>
+        <p>${temFiltro
               ? 'Ajuste os filtros para ver outros itens.'
               : 'Cadastre item a item, ou importe a planilha do evento anterior para começar com a base de custos pronta.'}</p>
-        ${podeEditar && aberto && !_busca && !_filtroCategoria && !_filtroSituacao ? `
+        ${podeEditar && aberto && !temFiltro ? `
           <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
             <button class="botao botao-primario" id="p-novo2">Novo item</button>
             <button class="botao" id="p-importar2">Importar planilha</button>
@@ -162,8 +179,17 @@ function desenhar(alvo) {
     const n = alvo.querySelector('#p-busca');
     n.focus(); n.setSelectionRange(n.value.length, n.value.length);
   });
-  q('#p-cat')?.addEventListener('change', e => { _filtroCategoria = e.target.value; desenhar(alvo); });
-  q('#p-sit')?.addEventListener('change', e => { _filtroSituacao = e.target.value; desenhar(alvo); });
+  alvo.querySelectorAll('[data-chip]').forEach(el =>
+    el.addEventListener('click', () => {
+      const g = el.dataset.chip, v = el.dataset.valor;
+      const set = g === 'cat' ? _filtroCategorias : g === 'sit' ? _filtroSituacoes : _filtroAndamentos;
+      set.has(v) ? set.delete(v) : set.add(v);
+      desenhar(alvo);
+    }));
+  q('#p-limpar')?.addEventListener('click', () => {
+    _filtroCategorias.clear(); _filtroSituacoes.clear(); _filtroAndamentos.clear();
+    desenhar(alvo);
+  });
   q('#p-novo')?.addEventListener('click', () => modalItem(null));
   q('#p-novo2')?.addEventListener('click', () => modalItem(null));
   q('#p-importar')?.addEventListener('click', () => abrirImportacao(_categorias));
