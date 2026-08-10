@@ -62,8 +62,15 @@ function desenhar(alvo) {
 
   const total = lista.reduce((a, s) => a + Number(s.valor), 0);
   const emAberto = _solicitacoes.filter(s => s.situacao === 'em_aberto');
-
-  alvo.innerHTML = `
+const vivas = _solicitacoes.filter(s => ['em_aberto','aprovada','paga_parcial','paga'].includes(s.situacao));
+  const totSolicitado = vivas.reduce((a, s) => a + Number(s.valor || 0), 0);
+  const totPago = vivas.reduce((a, s) => a + Number(s.pago || 0), 0);
+  const totEmAberto = Math.max(totSolicitado - totPago, 0);
+  alvo.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+      <div class="metrica"><div class="rotulo">Solicitado</div><div class="valor">${moeda(totSolicitado)}</div></div>
+      <div class="metrica"><div class="rotulo">Pago</div><div class="valor" style="color:var(--verde)">${moeda(totPago)}</div></div>
+      <div class="metrica"><div class="rotulo">Em aberto</div><div class="valor" style="color:var(--ambar)">${moeda(totEmAberto)}</div></div>
+    </div>
     <div class="barra-filtros">
       <select class="controle" id="s-filtro" style="width:auto;min-width:190px">
         <option value="">Todas as situações</option>
@@ -112,7 +119,7 @@ function desenhar(alvo) {
       </div>`}
   `;
 
-  alvo.querySelector('#s-filtro')?.addEventListener('change', e => { _filtro = e.target.value; desenhar(alvo); });
+  alvo.querySelector('#s-filtro')?.addEventListener('change', e => { _filtro = e.target.value; (alvo); });
   alvo.querySelector('#s-nova')?.addEventListener('click', () => modalNova(alvo));
   alvo.querySelector('#s-nova2')?.addEventListener('click', () => modalNova(alvo));
   alvo.querySelectorAll('[data-solic]').forEach(el =>
