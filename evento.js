@@ -2,7 +2,7 @@
 // Dentro de um evento — cabeçalho, abas e painel
 // ═══════════════════════════════════════════════════════
 
-import { buscarEvento, listarItens, minhaPermissao, andamentoItens } from './nucleo.js';
+import { buscarEvento, listarItens, minhaPermissao, andamentoItens, listarReceitas } from './nucleo.js';
 import { esc, aviso, moeda, numero, periodo, dataBR, iniciais, SITUACAO_EVENTO } from './ui.js';
 import { abaProducao } from './producao.js';
 import { abaSolicitacoes, abaAprovacoes } from './solicitacoes.js';
@@ -100,10 +100,6 @@ function desenhar() {
 
 /* ── painel do evento ──────────────────────────────── */
 
-// Selo pequeno de seção ainda por vir (depende de outra fase).
-function selo(texto) {
-  return `<span class="etiqueta etiqueta-neutra" style="font-size:11px;margin-left:6px">${texto}</span>`;
-}
 function pontinho(cor) {
   return `<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${cor};margin-right:5px;vertical-align:middle"></span>`;
 }
@@ -134,6 +130,13 @@ async function abaPainel(alvo) {
     (await andamentoItens(ev.id)).forEach(a => { andamento[a.item_id] = a; });
   } catch (e) { /* segue sem o financeiro; o orçamento ainda aparece */ }
 
+  // receitas — só para quem pode ver (dado sensível)
+  const podeVerReceitas = contexto.permissao?.admin || contexto.permissao?.ver_receitas;
+  let receitas = [];
+  if (podeVerReceitas) {
+    try { receitas = await listarReceitas(ev.id); } catch (e) { receitas = []; }
+  }
+
   // ── números ──
   const orcado = itens.reduce((a, i) => a + Number(i.valor_orcado || 0), 0);
   const referencia = itens.reduce((a, i) => a + Number(i.custo_referencia || 0), 0);
@@ -159,6 +162,20 @@ async function abaPainel(alvo) {
   });
   const cats = Object.entries(porCategoria).sort((a, b) => b[1].orcado - a[1].orcado);
 
+  // receitas: totais, resultado e por fonte
+  const receitaPrevista = receitas.reduce((a, r) => a + Number(r.valor_previsto || 0), 0);
+  const recebido = receitas.reduce((a, r) => a + Number(r.recebido || 0), 0);
+  const resultadoPrevisto = receitaPrevista - orcado;
+  const resultadoReal = recebido - pago;
+  const porFonte = {};
+  receitas.forEach(r => {
+    const k = r.fonte_nome || 'Sem fonte';
+    if (!porFonte[k]) porFonte[k] = { previsto: 0, recebido: 0 };
+    porFonte[k].previsto += Number(r.valor_previsto || 0);
+    porFonte[k].recebido += Number(r.recebido || 0);
+  });
+  const fontes = Object.entries(porFonte).sort((a, b) => b[1].previsto - a[1].previsto);
+
   // contagem regressiva
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const ini = ev.data_inicio ? new Date(ev.data_inicio + 'T00:00:00') : null;
@@ -174,10 +191,22 @@ async function abaPainel(alvo) {
         </div>
       </div>` : ''}
 
-    <h2 style="font-size:15px;margin:6px 0 10px">Resultado ${selo('Fase 4')}</h2>
-    <div class="cartao" style="color:var(--texto-2);font-size:14px">
-      Disponível quando o módulo de Receitas entrar: <strong>previsto</strong> (receita − orçado) e <strong>real</strong> (recebido − pago).
-    </div>
+    ${podeVerReceitas ? (receitas.length ? `
+      <h2 style="font-size:15px;margin:6px 0 10px">Resultado</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
+        <div class="metrica">
+          <div class="rotulo">Previsto</div>
+          <div class="valor" style="color:${resultadoPrevisto >= 0 ? 'var(--verde)' : 'var(--vermelho)'}">${resultadoPrevisto >= 0 ? '+' : ''}${moeda(resultadoPrevisto)}</div>
+          <div class="rotulo" style="margin-top:2px">receita prevista − orçado</div>
+        </div>
+        <div class="metrica">
+          <div class="rotulo">Real até agora</div>
+          <div class="valor" style="color:${resultadoReal >= 0 ? 'var(--verde)' : 'var(--vermelho)'}">${resultadoReal >= 0 ? '+' : ''}${moeda(resultadoReal)}</div>
+          <div class="rotulo" style="margin-top:2px">recebido − pago</div>
+        </div>
+      </div>` : `
+      <h2 style="font-size:15px;margin:6px 0 10px">Resultado</h2>
+      <div class="cartao" style="color:var(--texto-2);font-size:14px">Cadastre receitas na aba Receitas para ver o resultado previsto e real.</div>`) : ''}
 
     <h2 style="font-size:15px;margin:24px 0 10px">Orçamento</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
@@ -250,9 +279,25 @@ async function abaPainel(alvo) {
       <div class="rotulo" style="margin-top:6px">${pontinho('var(--verde)')}preenchido = já pago · trilha = orçado</div>
     </div>
 
-    <h2 style="font-size:15px;margin:24px 0 10px">Receitas por fonte ${selo('Fase 4')}</h2>
-    <div class="cartao" style="color:var(--texto-2);font-size:14px">
-      Disponível com o módulo de Receitas: distribuição por fonte (bilheteria, patrocínio, camarotes, bar).
-    </div>
+    ${podeVerReceitas ? (receitas.length ? `
+      <h2 style="font-size:15px;margin:24px 0 10px">Receitas por fonte</h2>
+      <div class="cartao">
+        ${fontes.map(([nome, v]) => {
+          const p = v.previsto > 0 ? Math.round(v.recebido / v.previsto * 100) : 0;
+          return `
+          <div style="margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;margin-bottom:4px">
+              <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(nome)}</span>
+              <span style="white-space:nowrap"><span class="num" style="color:var(--verde);font-weight:500">${moeda(v.recebido)}</span> <span style="color:var(--texto-3)">/ ${moeda(v.previsto)}</span></span>
+            </div>
+            <div style="height:8px;background:var(--superficie-2);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${p}%;background:var(--verde)"></div>
+            </div>
+          </div>`;
+        }).join('')}
+        <div class="rotulo" style="margin-top:6px">${pontinho('var(--verde)')}preenchido = recebido · trilha = previsto</div>
+      </div>` : `
+      <h2 style="font-size:15px;margin:24px 0 10px">Receitas por fonte</h2>
+      <div class="cartao" style="color:var(--texto-2);font-size:14px">Nenhuma receita cadastrada ainda.</div>`) : ''}
   `;
 }
