@@ -28,9 +28,9 @@ const SITUACOES = {
 // Andamento financeiro — segundo eixo, DERIVADO do dinheiro.
 // Nunca é campo: sai da soma das solicitações e pagamentos do item.
 const ANDAMENTO = {
-  pago:         { rotulo: 'Pago',         classe: 'etiqueta-verde' },
-  pago_parcial: { rotulo: 'Pago parcial', classe: 'etiqueta-acento' },
-  solicitado:   { rotulo: 'Solicitado',   classe: 'etiqueta-ambar' },
+  pago:         { rotulo: 'Pago',         cor: 'var(--verde)'  },
+  pago_parcial: { rotulo: 'Pago parcial', cor: 'var(--acento)' },
+  solicitado:   { rotulo: 'Solicitado',   cor: 'var(--ambar)'  },
 };
 
 // Decide o selo financeiro do item.
@@ -237,7 +237,7 @@ function linha(i, podeEditar, podeSolicitar) {
       </td>
       <td>
         <span class="etiqueta ${s.classe}">${s.rotulo}</span>
-        ${and ? `<div style="margin-top:4px"><span class="etiqueta ${and.classe}">${and.rotulo}</span></div>` : ''}
+        ${and ? `<div style="font-size:11px;color:${and.cor};margin-top:4px">${and.rotulo}</div>` : ''}
       </td>
       ${podeSolicitar ? `<td><button class="botao-icone" data-solicitar="${esc(i.id)}" title="Solicitar pagamento deste item">&#128181;</button></td>` : ''}
       ${podeEditar ? `<td><button class="botao-icone" data-editar="${esc(i.id)}" title="Editar">&#9998;</button></td>` : ''}
