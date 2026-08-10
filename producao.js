@@ -304,6 +304,7 @@ function linha(i, podeEditar, podeSolicitar) {
 function modalItem(item) {
   const edicao = !!item;
   const i = item || {};
+  const podeAdmin = contexto.permissao?.admin;   // mestre ou administrador
 
   abrirModal(edicao ? `Item ${String(i.numero).padStart(3, '0')}` : 'Novo item', `
     <form id="fi">
@@ -341,7 +342,9 @@ function modalItem(item) {
         <div class="campo">
           <label for="i-ref">Custo do evento anterior</label>
           <input class="controle" id="i-ref" type="number" min="0" step="0.01"
-                 value="${i.custo_referencia ?? ''}" placeholder="opcional">
+                 value="${i.custo_referencia ?? ''}" placeholder="opcional"
+                 ${podeAdmin ? '' : 'readonly style="opacity:.6;cursor:not-allowed"'}>
+          ${podeAdmin ? '' : '<div class="dica" style="margin-top:4px">Definido pelo mestre ou administrador.</div>'}
         </div>
       </div>
 
