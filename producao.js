@@ -10,12 +10,14 @@
 import {
   empresaAtual, listarCategorias, criarCategoria, listarFornecedores, salvarFornecedor,
   salvarItem, apagarItem, listarPrestacao, salvarPrestacao, apagarPrestacao,
+  andamentoItens,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
 import { abrirImportacao } from './importacao.js';
 import { modalNova, abaSolicitacoes } from './solicitacoes.js';
 
+// Situação de planejamento — campo manual, escolhido no cadastro do item.
 const SITUACOES = {
   previsto:   { rotulo: 'Previsto',   classe: 'etiqueta-neutra' },
   orcado:     { rotulo: 'Orçado',     classe: 'etiqueta-acento' },
@@ -23,8 +25,32 @@ const SITUACOES = {
   cancelado:  { rotulo: 'Cancelado',  classe: 'etiqueta-vermelha' },
 };
 
+// Andamento financeiro — segundo eixo, DERIVADO do dinheiro.
+// Nunca é campo: sai da soma das solicitações e pagamentos do item.
+const ANDAMENTO = {
+  pago:         { rotulo: 'Pago',         classe: 'etiqueta-verde' },
+  pago_parcial: { rotulo: 'Pago parcial', classe: 'etiqueta-acento' },
+  solicitado:   { rotulo: 'Solicitado',   classe: 'etiqueta-ambar' },
+};
+
+// Decide o selo financeiro do item.
+// A régua do "pago" é o valor ORÇADO, não o solicitado: um item pode ter
+// a solicitação toda paga e ainda ter orçado sem solicitar — nesse caso
+// continua "pago parcial", porque ainda há valor em aberto.
+function andamentoDoItem(a, orcado) {
+  const solicitado = Number(a?.solicitado || 0);
+  const pago = Number(a?.pago || 0);
+  const orc = Number(orcado || 0);
+  if (solicitado <= 0.005 && pago <= 0.005) return null;   // nada aconteceu
+  if (pago <= 0.005) return 'solicitado';                  // solicitado, nada pago
+  const alvo = orc > 0.005 ? orc : solicitado;             // sem orçado, cai no solicitado
+  if (pago + 0.005 >= alvo) return 'pago';                 // cobriu todo o orçado
+  return 'pago_parcial';                                   // pago, mas ainda falta
+}
+
 let _categorias = [];
 let _fornecedores = [];
+let _andamento = {};        // item_id → { solicitado, pago, em_fluxo }
 let _filtroCategoria = '';
 let _filtroSituacao = '';
 let _busca = '';
@@ -38,6 +64,12 @@ export async function abaProducao(alvo) {
       ]);
     } catch (e) { /* segue sem as listas auxiliares */ }
   }
+  // andamento financeiro por item — recarregado a cada abertura da aba
+  try {
+    const linhas = await andamentoItens(contexto.evento.id);
+    _andamento = {};
+    linhas.forEach(a => { _andamento[a.item_id] = a; });
+  } catch (e) { _andamento = {}; /* segue sem o andamento; a tela não trava */ }
   desenhar(alvo);
 }
 
@@ -60,6 +92,7 @@ function desenhar(alvo) {
 
   const totalOrcado = itens.reduce((a, i) => a + Number(i.valor_orcado || 0), 0);
   const totalRef = itens.reduce((a, i) => a + Number(i.custo_referencia || 0), 0);
+  const totalPago = itens.reduce((a, i) => a + Number(_andamento[i.id]?.pago || 0), 0);
 
   alvo.innerHTML = `
     <div class="barra-filtros">
@@ -90,7 +123,8 @@ function desenhar(alvo) {
               <th style="width:150px">Categoria</th>
               <th style="width:120px" class="num">Ano anterior</th>
               <th style="width:130px" class="num">Orçado</th>
-              <th style="width:110px">Situação</th>
+              <th style="width:130px" class="num">Pago</th>
+              <th style="width:150px">Situação</th>
               ${podeSolicitar ? '<th style="width:44px"></th>' : ''}
               ${podeEditar ? '<th style="width:44px"></th>' : ''}
             </tr>
@@ -103,6 +137,7 @@ function desenhar(alvo) {
               <td colspan="3">${itens.length} ${itens.length === 1 ? 'item' : 'itens'}</td>
               <td class="num" style="color:var(--texto-2)">${moeda(totalRef)}</td>
               <td class="num" style="font-weight:600">${moeda(totalOrcado)}</td>
+              <td class="num" style="font-weight:600;color:${totalPago > 0 ? 'var(--verde)' : 'var(--texto-3)'}">${totalPago > 0 ? moeda(totalPago) : '—'}</td>
               <td colspan="${(podeEditar ? 1 : 0) + (podeSolicitar ? 1 : 0) + 1}"></td>
             </tr>
           </tfoot>
@@ -145,11 +180,25 @@ function desenhar(alvo) {
       modalItem(contexto.itens.find(x => x.id === el.dataset.editar));
     }));
 
-  // atalho: abre a solicitação já com este item selecionado
+  // atalho: abre a solicitação já com este item selecionado.
+  // Antes, item sem saldo caía no primeiro item da lista — parecia
+  // que trocava de item sozinho. Agora avisa e não abre.
   alvo.querySelectorAll('[data-solicitar]').forEach(el =>
     el.addEventListener('click', async e => {
       e.stopPropagation();
       const id = el.dataset.solicitar;
+      const it = contexto.itens.find(x => x.id === id);
+      const num = it ? String(it.numero).padStart(3, '0') : '';
+      const orcado = Number(it?.valor_orcado || 0);
+      const solicitado = Number(_andamento[id]?.solicitado || 0);
+
+      if (orcado <= 0.005) {
+        return aviso(`Item ${num} não tem valor orçado. Defina o orçado antes de solicitar.`, 'aviso');
+      }
+      if (solicitado + 0.005 >= orcado) {
+        return aviso(`Item ${num} já teve todo o valor orçado solicitado (${moeda(solicitado)}).`, 'aviso');
+      }
+
       await abaSolicitacoes(document.createElement('div'));
       modalNova(alvo, id);
     }));
@@ -159,6 +208,13 @@ function linha(i, podeEditar, podeSolicitar) {
   const s = SITUACOES[i.situacao] || SITUACOES.orcado;
   const dif = i.custo_referencia != null
     ? Number(i.valor_orcado) - Number(i.custo_referencia) : null;
+
+  const a = _andamento[i.id];
+  const pago = Number(a?.pago || 0);
+  const emFluxo = Number(a?.em_fluxo || 0);
+  const andKey = andamentoDoItem(a, i.valor_orcado);
+  const and = andKey ? ANDAMENTO[andKey] : null;
+
   return `
     <tr data-item="${esc(i.id)}" style="cursor:pointer">
       <td style="color:var(--texto-3);font-variant-numeric:tabular-nums">${String(i.numero).padStart(3, '0')}</td>
@@ -175,7 +231,14 @@ function linha(i, podeEditar, podeSolicitar) {
         ${dif != null && dif !== 0 ? `<div style="font-size:11px;color:${dif > 0 ? 'var(--vermelho)' : 'var(--verde)'}">${dif > 0 ? '+' : ''}${moeda(dif)}</div>` : ''}
       </td>
       <td class="num" style="font-weight:500">${moeda(i.valor_orcado)}</td>
-      <td><span class="etiqueta ${s.classe}">${s.rotulo}</span></td>
+      <td class="num">
+        ${pago > 0.005 ? `<span style="color:var(--verde);font-weight:500">${moeda(pago)}</span>` : '<span style="color:var(--texto-3)">—</span>'}
+        ${emFluxo > 0.005 ? `<div style="font-size:11px;color:var(--texto-2)">em fluxo ${moeda(emFluxo)}</div>` : ''}
+      </td>
+      <td>
+        <span class="etiqueta ${s.classe}">${s.rotulo}</span>
+        ${and ? `<div style="margin-top:4px"><span class="etiqueta ${and.classe}">${and.rotulo}</span></div>` : ''}
+      </td>
       ${podeSolicitar ? `<td><button class="botao-icone" data-solicitar="${esc(i.id)}" title="Solicitar pagamento deste item">&#128181;</button></td>` : ''}
       ${podeEditar ? `<td><button class="botao-icone" data-editar="${esc(i.id)}" title="Editar">&#9998;</button></td>` : ''}
     </tr>`;
