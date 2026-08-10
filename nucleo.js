@@ -756,7 +756,132 @@ export async function minhaPermissao(eventoId) {
     .maybeSingle();
   return { admin: false, ...(data || { ver_evento: true }) };
 }
+/* ── receitas ──────────────────────────────────────── */
 
+// Fontes de receita do evento (bilheteria, patrocínio…). São do
+// evento, como as fontes de pagamento — fáceis de gerir e mudam
+// de evento pra evento.
+export async function listarFontesReceita(eventoId) {
+  const { data, error } = await bd
+    .from('fonte_receita')
+    .select('id, nome, ativa')
+    .eq('evento_id', eventoId)
+    .order('nome');
+  if (error) throw error;
+  return data || [];
+}
+
+export async function salvarFonteReceita(eventoId, id, nome) {
+  const linha = { nome: nome.trim() };
+  const q = id
+    ? bd.from('fonte_receita').update(linha).eq('id', id)
+    : bd.from('fonte_receita').insert({ ...linha, evento_id: eventoId });
+  const { data, error } = await q.select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+export async function alternarFonteReceita(id, ativa) {
+  const { error } = await bd.from('fonte_receita').update({ ativa }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+// Cópia das fontes de um evento anterior, na criação.
+export async function copiarFontesReceita(eventoId, nomes) {
+  const linhas = nomes.map(n => n.trim()).filter(Boolean).map(nome => ({ evento_id: eventoId, nome }));
+  if (!linhas.length) return [];
+  const { data, error } = await bd.from('fonte_receita').insert(linhas).select();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+export async function listarReceitas(eventoId) {
+  const { data, error } = await bd
+    .from('receita_visao')
+    .select('*')
+    .eq('evento_id', eventoId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// Parcelas de várias receitas, com os recebimentos aninhados.
+export async function listarParcelasReceita(receitaIds) {
+  if (!receitaIds.length) return [];
+  const { data, error } = await bd
+    .from('receita_parcela')
+    .select('*, recebimento(id, valor, data, comprovante_url, estorno_de, registrado_por)')
+    .in('receita_id', receitaIds)
+    .order('vencimento', { ascending: true, nullsFirst: false });
+  if (error) throw error;
+  return data || [];
+}
+
+// Cria a receita e suas parcelas. Sem parcela, a receita não serve: desfaz.
+export async function criarReceita(eventoId, dados, parcelas) {
+  const { data: rec, error } = await bd
+    .from('receita')
+    .insert({
+      evento_id: eventoId,
+      fonte_receita_id: dados.fonte_receita_id || null,
+      descricao: dados.descricao?.trim() || null,
+      valor_previsto: Number(dados.valor_previsto) || 0,
+      pagador: dados.pagador?.trim() || null,
+      observacoes: dados.observacoes?.trim() || null,
+      criado_por: sessao.usuario.id,
+    })
+    .select().single();
+  if (error) throw new Error(traduzErro(error.message));
+
+  const linhas = parcelas.map(p => ({
+    receita_id: rec.id,
+    vencimento: p.vencimento || null,
+    valor: Number(p.valor),
+  }));
+  const { error: e2 } = await bd.from('receita_parcela').insert(linhas);
+  if (e2) {
+    await bd.from('receita').delete().eq('id', rec.id);
+    throw new Error(traduzErro(e2.message));
+  }
+  return rec;
+}
+
+export async function apagarReceita(id) {
+  const { error } = await bd.from('receita').delete().eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+// Recebimento é imutável: registra-se, não se corrige nem apaga.
+export async function registrarRecebimento(parcelaId, dados) {
+  const { data, error } = await bd
+    .from('recebimento')
+    .insert({
+      parcela_id: parcelaId,
+      valor: Number(dados.valor),
+      data: dados.data || new Date().toISOString().slice(0, 10),
+      comprovante_url: dados.comprovante_url || null,
+      observacao: dados.observacao?.trim() || null,
+      registrado_por: sessao.usuario?.id || null,
+    })
+    .select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+// Estorno: um recebimento negativo apontando para o original.
+export async function estornarRecebimento(recebimentoId, motivo) {
+  const { data: orig, error: e0 } = await bd
+    .from('recebimento').select('parcela_id, valor').eq('id', recebimentoId).single();
+  if (e0) throw new Error(traduzErro(e0.message));
+  const { error } = await bd.from('recebimento').insert({
+    parcela_id: orig.parcela_id,
+    valor: -Number(orig.valor),
+    observacao: motivo?.trim() || 'estorno',
+    estorno_de: recebimentoId,
+    registrado_por: sessao.usuario?.id || null,
+  });
+  if (error) throw new Error(traduzErro(error.message));
+}
 /* ── arquivos ──────────────────────────────────────── */
 
 export async function enviarLogo(arquivo, prefixo = 'evento') {
