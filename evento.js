@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════
 
 import { buscarEvento, listarItens, minhaPermissao, andamentoItens, listarReceitas } from './nucleo.js';
-import { esc, aviso, moeda, numero, periodo, dataBR, iniciais, SITUACAO_EVENTO } from './ui.js';
+import { esc, aviso, moeda, numero, periodo, dataBR, iniciais, SITUACAO_EVENTO, registrarView } from './ui.js';
 import { abaProducao } from './producao.js';
 import { abaSolicitacoes, abaAprovacoes } from './solicitacoes.js';
 import { abaReceitas } from './receitas.js';
@@ -53,6 +53,7 @@ function desenhar() {
   const ev = contexto.evento;
   const sit = SITUACAO_EVENTO[ev.situacao] || SITUACAO_EVENTO.planejamento;
   const alvo = document.querySelector('#conteudo');
+  registrarView(desenhar);   // o olhinho repinta o evento sem sair dele
 
   alvo.innerHTML = `
     <button class="botao voltar" id="voltar">← Eventos</button>
