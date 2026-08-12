@@ -64,6 +64,7 @@ export async function comBotao(botao, tarefa) {
 
 /* ── formatação ────────────────────────────────────── */
 export function moeda(v) {
+  if (_privado) return 'R$ ••••';
   const n = Number(v) || 0;
   return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
@@ -184,3 +185,13 @@ export function alternarTema() {
   aplicarTema(novo);
   return novo;
 }
+/* ── olhinho: oculta valores em dinheiro ───────────── */
+// Começa ligado a cada carregamento: todo login abre oculto.
+let _privado = true;
+export function privadoAtivo() { return _privado; }
+export function alternarPrivado() { _privado = !_privado; repintarView(); return _privado; }
+
+// Registro da tela atual, para o olhinho repintar sem trocar de tela.
+let _viewAtual = null;
+export function registrarView(fn) { _viewAtual = fn; }
+export function repintarView() { if (_viewAtual) _viewAtual(); }
