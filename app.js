@@ -6,10 +6,12 @@ import { bd, sessao, carregarSessao, sair, salvarPerfil, empresaAtual } from './
 import { APP } from './config.js';
 import {
   esc, aviso, iniciarModal, abrirModal, fecharModal, comBotao,
-  iniciais, aplicarTema, temaAtual, alternarTema,
+  iniciais, aplicarTema, temaAtual, alternarTema, 
+  alternarPrivado, privadoAtivo, registrarView
 } from './ui.js';
 import { telaLogin } from './login.js';
 import { telaEventos } from './eventos.js';
+import { telaPainelEmpresa } from './painel_empresa.js';
 import { telaUsuarios } from './usuarios.js';
 import { telaFornecedores } from './fornecedores.js';
 import { telaProdutora } from './produtora.js';
@@ -60,6 +62,7 @@ async function entrarNoSistema() {
 /* ── estrutura interna ─────────────────────────────── */
 
 const SECOES = [
+  { id: 'painel', rotulo: 'Painel', tela: telaPainelEmpresa, perm: 'ver_painel' },
   { id: 'eventos',      rotulo: 'Eventos',      tela: telaEventos,      sempre: true },
   { id: 'pagamentos',   rotulo: 'Pagamentos',   tela: telaPagamentos,   pagador: true },
   { id: 'fornecedores', rotulo: 'Fornecedores', tela: telaFornecedores, perm: 'gerir_fornecedores' },
@@ -99,6 +102,7 @@ async function montarEstrutura() {
           `).join('')}
         </nav>` : ''}
       <div class="espaco"></div>
+      <button id="btn-olho" aria-label="Mostrar ou ocultar valores" style="background:none;border:none;cursor:pointer;color:var(--texto-2);display:flex;align-items:center;padding:6px;margin-right:2px"></button> 
       <button class="avatar" id="btn-conta" aria-label="Sua conta">${esc(iniciais(sessao.usuario.nome))}</button>
     </header>
     <main class="conteudo" id="conteudo"></main>
@@ -110,7 +114,10 @@ async function montarEstrutura() {
     e.stopPropagation();
     alternarMenuConta();
   });
-
+const olho = document.getElementById('btn-olho');
+  const pintarOlho = () => { olho.innerHTML = iconeOlho(privadoAtivo()); };
+  pintarOlho();
+  olho.addEventListener('click', () => { alternarPrivado(); pintarOlho(); });
   app.querySelectorAll('[data-secao]').forEach(b => {
     b.addEventListener('click', () => irPara(b.dataset.secao));
   });
@@ -123,7 +130,7 @@ async function montarEstrutura() {
     if (alvo && e) alvo.textContent = e.nome;
   });
 
-  await telaEventos();
+  await irPara(secoes[0].id);
 }
 
 async function irPara(id) {
@@ -131,6 +138,7 @@ async function irPara(id) {
   if (!secao) return;
   document.querySelectorAll('[data-secao]').forEach(b =>
     b.classList.toggle('ativo', b.dataset.secao === id));
+  registrarView(() => irPara(id));
   try { await secao.tela(); }
   catch (e) { aviso(e.message, 'erro'); }
 }
@@ -235,3 +243,7 @@ bd.auth.onAuthStateChange((evento) => {
 });
 
 iniciar();
+function iconeOlho(oculto) {
+  const base = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>';
+  return base + (oculto ? '<line x1="3" y1="3" x2="21" y2="21"/>' : '') + '</svg>';
+}
