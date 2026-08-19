@@ -2,7 +2,7 @@
 // Tela de entrada
 // ═══════════════════════════════════════════════════════
 
-import { entrar, recuperarSenha, definirSenha, criarConta } from './nucleo.js';
+import { entrar, recuperarSenha, definirSenha, criarConta, salvarMeuNome } from './nucleo.js';
 import { APP } from './config.js';
 import { aviso, comBotao, esc } from './ui.js';
 
@@ -160,18 +160,23 @@ function telaCriarConta(aoEntrar) {
   document.getElementById('carregando').hidden = true;
 }
 
-/* Tela mostrada quando a pessoa chega pelo link de recuperação */
+/* Tela mostrada quando a pessoa chega pelo link de recuperação ou de convite */
 function telaNovaSenha(app, aoEntrar) {
   app.innerHTML = `
     <div class="login-tela">
       <div class="login-caixa">
         <div class="login-marca">
           <div class="nome">${esc(APP.nome)}</div>
-          <div class="desc">Defina sua nova senha</div>
+          <div class="desc">Defina sua senha</div>
         </div>
         <div class="cartao">
           <div id="erro" class="login-erro" hidden></div>
           <form id="form">
+            <div class="campo">
+              <label for="s-nome">Seu nome</label>
+              <input class="controle" id="s-nome" autocomplete="name" placeholder="Como você quer ser chamado">
+              <div class="dica">Deixe em branco para manter o nome que já registraram</div>
+            </div>
             <div class="campo">
               <label for="s1">Nova senha</label>
               <input class="controle" type="password" id="s1" autocomplete="new-password" required>
@@ -193,6 +198,7 @@ function telaNovaSenha(app, aoEntrar) {
   app.querySelector('#form').addEventListener('submit', async e => {
     e.preventDefault();
     erro.hidden = true;
+    const nome = app.querySelector('#s-nome')?.value.trim();
     const s1 = app.querySelector('#s1').value;
     const s2 = app.querySelector('#s2').value;
     if (s1.length < 6) { erro.textContent = 'A senha precisa ter pelo menos 6 caracteres.'; erro.hidden = false; return; }
@@ -201,9 +207,10 @@ function telaNovaSenha(app, aoEntrar) {
     await comBotao(app.querySelector('#btn'), async () => {
       try {
         await definirSenha(s1);
-        aviso('Senha atualizada.');
         history.replaceState(null, '', window.location.pathname);
         await aoEntrar();
+        if (nome) { try { await salvarMeuNome(nome); } catch (_) {} }
+        aviso('Tudo pronto. Bem-vindo!');
       } catch (e) {
         erro.textContent = e.message; erro.hidden = false;
       }

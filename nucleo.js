@@ -90,6 +90,32 @@ export async function definirSenha(novaSenha) {
   if (error) throw new Error(traduzErro(error.message));
 }
 
+/** Convite de verdade: cria o acesso e dispara o email com o link de senha. */
+export async function convidarUsuario({ email, nome }) {
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { data, error } = await bd.functions.invoke('convidar-usuario', {
+    body: { email: (email || '').trim().toLowerCase(), nome: nome?.trim() || null, redirectTo },
+  });
+  if (error) {
+    let msg = 'Não consegui enviar o convite.';
+    try { const j = await error.context.json(); if (j?.erro) msg = j.erro; }
+    catch (_) { if (error.message) msg = error.message; }
+    throw new Error(msg);
+  }
+  if (data?.erro) throw new Error(data.erro);
+  return data;
+}
+
+/** Atualiza só o nome do usuário logado (não toca em cpf/telefone). */
+export async function salvarMeuNome(nome) {
+  const n = (nome || '').trim();
+  if (!n) return;
+  const { error } = await bd.from('usuario').update({ nome: n }).eq('id', sessao.usuario.id);
+  if (error) throw new Error(traduzErro(error.message));
+  sessao.usuario.nome = n;
+  try { await bd.auth.updateUser({ data: { nome: n } }); } catch (_) {}
+}
+
 export async function sessaoAtual() {
   try {
     const { data } = await comPrazo(

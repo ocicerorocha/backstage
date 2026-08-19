@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════
 
 import {
-  sessao, listarMembros, listarConvites, convidar, cancelarConvite,
+  sessao, listarMembros, listarConvites, convidar, convidarUsuario, cancelarConvite,
   alterarMembro, listarEventos, listarPermissoes, salvarPermissao, removerPermissao,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
@@ -83,8 +83,8 @@ export async function telaUsuarios() {
         ${convites.map(c => linhaConvite(c)).join('')}
       </div>
       <p style="font-size:12px;color:var(--texto-3);margin-top:10px">
-        O vínculo é criado sozinho quando a pessoa entrar no sistema com esse email.
-        Avise-a para acessar o endereço e criar a conta, ou entrar se já tiver uma.
+        A pessoa recebe um email com um link para criar a senha e entrar. Se não
+        chegar, use "Reenviar". O vínculo é aplicado sozinho no primeiro acesso.
       </p>` : ''}
   `;
 
@@ -93,6 +93,8 @@ export async function telaUsuarios() {
     el.addEventListener('click', () => modalPermissoes(el.dataset.permissoes, el.dataset.nome)));
   alvo.querySelectorAll('[data-cancelar]').forEach(el =>
     el.addEventListener('click', () => removerConvite(el.dataset.cancelar)));
+  alvo.querySelectorAll('[data-reenviar]').forEach(el =>
+    el.addEventListener('click', () => reenviarConvite(el.dataset.reenviar, el.dataset.rnome)));
   alvo.querySelectorAll('[data-ativar]').forEach(el =>
     el.addEventListener('click', () => alternarAtivo(el.dataset.ativar, el.dataset.estado === 'true')));
 }
@@ -133,7 +135,10 @@ function linhaConvite(c) {
           ${esc(c.email)} · ${esc(PAPEL_EMPRESA[c.papel] || c.papel)} · convidado em ${dataBR(c.criado_em)}
         </div>
       </div>
-      <button class="botao" style="height:32px;font-size:13px" data-cancelar="${esc(c.id)}">Cancelar</button>
+      <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+        <button class="botao" style="height:32px;font-size:13px" data-reenviar="${esc(c.email)}" data-rnome="${esc(c.nome || '')}">Reenviar</button>
+        <button class="botao" style="height:32px;font-size:13px" data-cancelar="${esc(c.id)}">Cancelar</button>
+      </div>
     </div>`;
 }
 
@@ -254,7 +259,12 @@ function modalConvite() {
           empresaId: _empresa.id, email, nome: q('#c-nome').value,
           papel: q('#c-papel').value, permissoesEmpresa, permissoesEventos,
         });
-        aviso('Convite registrado. Avise a pessoa para entrar com esse email.');
+        try {
+          await convidarUsuario({ email, nome: q('#c-nome').value });
+          aviso('Convite enviado por email para ' + email + '.');
+        } catch (err) {
+          aviso('Convite criado, mas o email falhou: ' + err.message + ' Use "Reenviar" na lista.', 'aviso', 9000);
+        }
         fecharModal();
         await telaUsuarios();
       } catch (err) { aviso(err.message, 'erro'); }
@@ -272,6 +282,11 @@ function aplicarPapel(eventoId, papel) {
 async function removerConvite(id) {
   if (!confirm('Cancelar este convite?')) return;
   try { await cancelarConvite(id); aviso('Convite cancelado.'); await telaUsuarios(); }
+  catch (e) { aviso(e.message, 'erro'); }
+}
+
+async function reenviarConvite(email, nome) {
+  try { await convidarUsuario({ email, nome }); aviso('Convite reenviado para ' + email + '.'); }
   catch (e) { aviso(e.message, 'erro'); }
 }
 
