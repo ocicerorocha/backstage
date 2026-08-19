@@ -2,118 +2,458 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Backstage</title>
-<meta name="description" content="Gestão financeira para produtoras de eventos">
-<meta name="theme-color" content="#ffffff">
-<link rel="stylesheet" href="estilo.css">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backstage — Gestão financeira para produtoras de eventos</title>
+<meta name="description" content="Saia da planilha e assuma o controle de ponta a ponta: orçamento, solicitações, aprovações e pagamentos da sua produtora de eventos, com cada real rastreado — direto do celular.">
+<meta name="theme-color" content="#111214">
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="brand/favicon-16.png">
+<link rel="apple-touch-icon" href="brand/app-icon-180.png">
+<meta property="og:title" content="Backstage — Gestão financeira para produtoras de eventos">
+<meta property="og:description" content="Saia da planilha e assuma o controle de ponta a ponta. Cada um no seu papel, cada real rastreado, direto do celular.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="brand/app-icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --ink:#111214; --texto:#1c1c1a; --texto-2:#5f5f5a; --texto-3:#8b8b85;
+  --fundo:#f7f7f5; --superficie:#fff; --superficie-2:#f1f1ee;
+  --borda:#e3e3df; --borda-forte:#c9c9c3;
+  --acento:#1f6feb; --acento-fundo:#e8f0fe; --acento-texto:#1a5fcc;
+  --verde:#1a7f4b; --verde-fundo:#e6f4ec;
+  --ambar:#a86b00; --ambar-fundo:#fdf1dc;
+  --vermelho:#c0392b; --vermelho-fundo:#fbeae8;
+  --raio:8px; --raio-g:14px;
+  --sombra:0 1px 3px rgba(0,0,0,.06), 0 10px 30px rgba(0,0,0,.05);
+  --sombra-forte:0 20px 50px rgba(17,18,20,.14);
+  --fonte:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --display:"Archivo",var(--fonte);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:var(--fonte);background:var(--fundo);color:var(--texto);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+.wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:-.02em;line-height:1.12}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:46px;padding:0 22px;
+  font-family:var(--fonte);font-size:15px;font-weight:600;border-radius:var(--raio);cursor:pointer;border:1px solid transparent;
+  transition:transform .15s ease,filter .15s ease,background .15s ease,border-color .15s ease;white-space:nowrap}
+.btn:active{transform:scale(.98)}
+.btn-primario{background:var(--acento);color:#fff;border-color:var(--acento)}
+.btn-primario:hover{filter:brightness(1.07)}
+.btn-escuro{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn-escuro:hover{filter:brightness(1.25)}
+.btn-fantasma{background:transparent;color:var(--texto);border-color:var(--borda-forte)}
+.btn-fantasma:hover{background:var(--superficie-2)}
+.btn-sm{height:40px;padding:0 16px;font-size:14px}
+
+header.topo{position:sticky;top:0;z-index:40;background:rgba(247,247,245,.82);backdrop-filter:saturate(160%) blur(10px);border-bottom:1px solid var(--borda)}
+.topo .wrap{display:flex;align-items:center;gap:16px;height:66px}
+.topo .logo{height:26px;width:auto}
+.topo nav{margin-left:auto;display:flex;align-items:center;gap:10px}
+.topo nav a.link{display:none;font-size:14px;color:var(--texto-2);padding:8px 10px;border-radius:6px}
+.topo nav a.link:hover{color:var(--texto);background:var(--superficie-2)}
+@media(min-width:820px){.topo nav a.link{display:inline-flex}}
+
+.hero{padding:72px 0 44px}
+.hero-grid{display:grid;gap:44px;align-items:center}
+@media(min-width:940px){.hero-grid{grid-template-columns:1.05fr .95fr;gap:52px}}
+.selo{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--acento-texto);
+  background:var(--acento-fundo);padding:6px 12px;border-radius:20px;margin-bottom:20px}
+.selo .ponto{width:7px;height:7px;border-radius:50%;background:var(--acento)}
+.hero h1{font-size:clamp(33px,5vw,52px);font-weight:800}
+.hero h1 .grifo{color:var(--acento)}
+.hero p.sub{font-size:clamp(17px,2.1vw,20px);color:var(--texto-2);margin-top:20px;max-width:580px}
+.hero .ctas{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.hero .nota{margin-top:16px;font-size:13px;color:var(--texto-3)}
+
+/* preview navegador */
+.preview{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--raio-g);box-shadow:var(--sombra-forte);overflow:hidden}
+.preview .barra{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--borda);background:var(--superficie-2)}
+.preview .barra .pnt{width:10px;height:10px;border-radius:50%;background:var(--borda-forte)}
+.preview .barra .url{margin-left:8px;font-size:12px;color:var(--texto-3);font-variant-numeric:tabular-nums}
+.preview .corpo{padding:18px}
+.mini-tit{font-family:var(--display);font-weight:700;font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.metricas{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.metrica{background:var(--superficie-2);border-radius:10px;padding:11px 13px}
+.metrica .rot{font-size:11px;color:var(--texto-2);margin-bottom:4px}
+.metrica .val{font-family:var(--display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums}
+.metrica .val.verde{color:var(--verde)}
+.metrica .val.mask{letter-spacing:1px}
+.linha-pag{display:flex;align-items:center;gap:11px;padding:10px 0;border-top:1px solid var(--borda)}
+.linha-pag .marca{width:4px;height:34px;border-radius:2px;flex-shrink:0}
+.linha-pag .txt{flex:1;min-width:0}
+.linha-pag .txt .n{font-size:13px;font-weight:600}
+.linha-pag .txt .m{font-size:12px;color:var(--texto-2)}
+.linha-pag .v{font-family:var(--display);font-weight:700;font-size:14px;font-variant-numeric:tabular-nums}
+.chip{display:inline-flex;align-items:center;padding:2px 9px;font-size:11px;font-weight:600;border-radius:20px}
+.chip.verde{background:var(--verde-fundo);color:var(--verde)}
+.chip.ambar{background:var(--ambar-fundo);color:var(--ambar)}
+.chip.acento{background:var(--acento-fundo);color:var(--acento-texto)}
+
+.faixa{border-top:1px solid var(--borda);border-bottom:1px solid var(--borda);background:var(--superficie)}
+.faixa .wrap{padding:20px 22px;text-align:center;color:var(--texto-2);font-size:15px}
+.faixa b{color:var(--texto);font-weight:600}
+
+section.bloco{padding:74px 0}
+.cabeca-sec{max-width:660px;margin:0 auto 46px;text-align:center}
+.cabeca-sec .tag{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--acento-texto)}
+.cabeca-sec h2{font-size:clamp(27px,3.6vw,38px);margin-top:10px}
+.cabeca-sec p{color:var(--texto-2);margin-top:14px;font-size:17px}
+
+/* destaques (2 colunas alternadas) */
+.destaque{display:grid;gap:36px;align-items:center;padding:20px 0}
+@media(min-width:900px){.destaque{grid-template-columns:1fr 1fr;gap:56px}.destaque.inv .lado-txt{order:2}}
+.destaque .tag{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--acento-texto)}
+.destaque h2{font-size:clamp(24px,3.2vw,33px);margin:10px 0 14px}
+.destaque p.d{color:var(--texto-2);font-size:16.5px}
+.destaque ul{list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:9px}
+.destaque ul li{display:flex;gap:10px;align-items:flex-start;font-size:15px;color:var(--texto)}
+.destaque ul li svg{flex-shrink:0;margin-top:3px;color:var(--verde)}
+
+/* celular mock */
+.fone-wrap{display:flex;justify-content:center}
+.fone{width:100%;max-width:290px;background:var(--ink);border-radius:34px;padding:11px;box-shadow:var(--sombra-forte)}
+.fone .tela{background:var(--fundo);border-radius:24px;overflow:hidden}
+.fone .top{height:26px;background:var(--superficie);display:flex;align-items:center;justify-content:center}
+.fone .top::before{content:"";width:70px;height:5px;border-radius:5px;background:var(--borda-forte)}
+.fone .app{padding:14px}
+.fone .app .cab{font-family:var(--display);font-weight:700;font-size:14px;margin-bottom:10px}
+.card-sol{background:var(--superficie);border:1px solid var(--borda);border-radius:12px;padding:12px;margin-bottom:10px}
+.card-sol .l{font-size:11px;color:var(--texto-2)}
+.card-sol .campo-fake{height:30px;border:1px solid var(--borda-forte);border-radius:7px;margin:4px 0 8px;display:flex;align-items:center;padding:0 9px;font-size:12px;color:var(--texto)}
+.btn-fake{height:34px;border-radius:7px;background:var(--acento);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.toast-fake{display:flex;align-items:center;gap:8px;background:var(--superficie);border:1px solid var(--borda-forte);border-left:3px solid var(--verde);border-radius:8px;padding:9px 11px;font-size:12px;box-shadow:var(--sombra);margin-top:8px}
+.toast-fake.aviso{border-left-color:var(--acento)}
+.dot-v{width:16px;height:16px;border-radius:50%;background:var(--verde-fundo);color:var(--verde);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* mock import */
+.mock{background:var(--superficie);border:1px solid var(--borda);border-radius:var(--raio-g);box-shadow:var(--sombra);overflow:hidden}
+.mock .cab{padding:14px 18px;border-bottom:1px solid var(--borda);font-family:var(--display);font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.mock .conteudo{padding:16px 18px}
+.tab-min{width:100%;border-collapse:collapse;font-size:13px}
+.tab-min th{text-align:left;font-weight:500;font-size:11px;color:var(--texto-3);padding:6px 8px;border-bottom:1px solid var(--borda)}
+.tab-min td{padding:9px 8px;border-bottom:1px solid var(--borda);vertical-align:middle}
+.tab-min tr:last-child td{border-bottom:none}
+.tab-min .num{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.barra-prog{height:7px;border-radius:20px;background:var(--superficie-2);overflow:hidden;margin-top:4px;min-width:70px}
+.barra-prog i{display:block;height:100%;background:var(--verde);border-radius:20px}
+.seta-import{display:flex;align-items:center;justify-content:center;gap:12px;margin:6px 0 12px;color:var(--texto-3);font-size:12px}
+.pill-xls{display:inline-flex;align-items:center;gap:7px;background:var(--verde-fundo);color:var(--verde);font-weight:600;font-size:12px;padding:6px 11px;border-radius:8px}
+.pill-app{display:inline-flex;align-items:center;gap:7px;background:var(--acento-fundo);color:var(--acento-texto);font-weight:600;font-size:12px;padding:6px 11px;border-radius:8px}
+
+/* grade compacta */
+.grade-mais{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:600px){.grade-mais{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:960px){.grade-mais{grid-template-columns:repeat(4,1fr)}}
+.mini{background:var(--superficie);border:1px solid var(--borda);border-radius:12px;padding:18px}
+.mini .ic{width:36px;height:36px;border-radius:9px;background:var(--acento-fundo);color:var(--acento-texto);display:flex;align-items:center;justify-content:center;margin-bottom:11px}
+.mini h3{font-size:15px}
+.mini p{color:var(--texto-2);font-size:13.5px;margin-top:5px}
+
+/* como funciona */
+.passos{display:grid;gap:22px;grid-template-columns:1fr;counter-reset:p}
+@media(min-width:820px){.passos{grid-template-columns:repeat(3,1fr)}}
+.passo{position:relative;padding:26px 22px;background:var(--superficie);border:1px solid var(--borda);border-radius:var(--raio-g)}
+.passo .num{font-family:var(--display);font-weight:800;font-size:15px;width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.passo h3{font-size:18px}
+.passo p{color:var(--texto-2);font-size:14.5px;margin-top:8px}
+
+/* contato */
+.contato-cartao{max-width:620px;margin:0 auto;background:var(--superficie);border:1px solid var(--borda);border-radius:var(--raio-g);box-shadow:var(--sombra);padding:28px}
+.campo{margin-bottom:15px}
+.campo label{display:block;font-size:13px;font-weight:600;color:var(--texto-2);margin-bottom:6px}
+.controle{width:100%;height:46px;padding:0 14px;font-family:inherit;font-size:15px;color:var(--texto);background:var(--superficie);border:1px solid var(--borda-forte);border-radius:var(--raio);transition:border-color .15s,box-shadow .15s}
+textarea.controle{height:auto;min-height:96px;padding:12px 14px;resize:vertical;line-height:1.5}
+.controle:focus{outline:none;border-color:var(--acento);box-shadow:0 0 0 3px var(--acento-fundo)}
+.controle::placeholder{color:var(--texto-3)}
+.dupla{display:grid;gap:15px}
+@media(min-width:560px){.dupla{grid-template-columns:1fr 1fr}}
+.msg{margin-top:14px;padding:12px 14px;border-radius:var(--raio);font-size:14px;display:none}
+.msg.ok{display:block;background:var(--verde-fundo);color:var(--verde)}
+.msg.erro{display:block;background:var(--vermelho-fundo);color:var(--vermelho)}
+.contato-alt{text-align:center;color:var(--texto-3);font-size:13px;margin-top:18px}
+.contato-alt a{color:var(--acento-texto);font-weight:600}
+
+footer{background:var(--ink);color:#c9c9cf;padding:48px 0 34px;margin-top:20px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:22px;align-items:center;justify-content:space-between}
+footer .logo{height:30px}
+footer .links{display:flex;gap:20px;flex-wrap:wrap;font-size:14px}
+footer .links a:hover{color:#fff}
+footer .fim{width:100%;border-top:1px solid #2a2b2f;margin-top:12px;padding-top:20px;font-size:13px;color:#7d7e86;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+.rev{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.rev.vis{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.rev{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+</style>
 </head>
 <body>
 
-  <div id="carregando" class="tela-carregando">
-    <div style="text-align:center;max-width:520px;padding:24px">
-      <div class="girando" style="margin:0 auto 14px"></div>
-      <div id="carregando-texto" style="font-size:14px;color:var(--texto-2)">Carregando...</div>
+<header class="topo">
+  <div class="wrap">
+    <a href="#topo" aria-label="Backstage"><img class="logo" src="brand/backstage-lockup-horizontal-black.svg" alt="Backstage"></a>
+    <nav>
+      <a class="link" href="#papeis">Papéis</a>
+      <a class="link" href="#recursos">Recursos</a>
+      <a class="link" href="#como">Como funciona</a>
+      <a class="btn btn-escuro btn-sm" href="/login">Entrar</a>
+    </nav>
+  </div>
+</header>
+<a id="topo"></a>
 
-      <div id="falha" hidden style="margin-top:22px;text-align:left">
-        <div class="cartao" style="border-color:var(--vermelho)">
-          <h3 style="color:var(--vermelho);margin-bottom:8px">Não consegui iniciar</h3>
-          <p style="font-size:14px;color:var(--texto-2);margin-bottom:12px" id="falha-dica"></p>
-          <pre id="falha-detalhe" style="font-size:12px;background:var(--superficie-2);padding:10px;border-radius:8px;overflow:auto;max-height:200px;white-space:pre-wrap;word-break:break-word"></pre>
-          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-            <button class="botao" onclick="location.reload()">Tentar de novo</button>
-            <button class="botao" id="btn-limpar">Limpar e recomeçar</button>
-            <button class="botao" id="btn-copiar">Copiar erro</button>
-            <a class="botao" href="diagnostico.html">Abrir diagnóstico</a>
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="rev vis">
+      <span class="selo"><span class="ponto"></span> Gestão financeira para produtoras de eventos</span>
+      <h1>Saia da planilha. <span class="grifo">Assuma o controle</span> de ponta a ponta.</h1>
+      <p class="sub">Backstage conecta orçamento, solicitações, aprovações e pagamentos da sua produtora — cada um no seu papel, cada real rastreado, direto do celular. Importe a planilha que você já usa e comece hoje.</p>
+      <div class="ctas">
+        <a class="btn btn-primario" href="#contato">Pedir uma demonstração</a>
+        <a class="btn btn-fantasma" href="/login">Entrar na minha conta</a>
+      </div>
+      <p class="nota">Feito para quem produz shows, festivais e grandes eventos.</p>
+    </div>
+    <div class="rev vis">
+      <div class="preview" role="img" aria-label="Prévia do painel do Backstage">
+        <div class="barra"><span class="pnt"></span><span class="pnt"></span><span class="pnt"></span><span class="url">usebackstage.com.br</span></div>
+        <div class="corpo">
+          <div class="mini-tit">Painel da produtora</div>
+          <div class="metricas">
+            <div class="metrica"><div class="rot">Orçado</div><div class="val mask">R$ ••••</div></div>
+            <div class="metrica"><div class="rot">Pago</div><div class="val mask">R$ ••••</div></div>
+            <div class="metrica"><div class="rot">Recebido</div><div class="val mask">R$ ••••</div></div>
+            <div class="metrica"><div class="rot">Resultado real</div><div class="val verde">+R$ ••••</div></div>
           </div>
-          <p style="font-size:12px;color:var(--texto-3);margin-top:10px">
-            "Limpar e recomeçar" apaga a sessão guardada neste navegador e volta para a tela de entrada.
-            Nenhum dado do sistema é perdido.
-          </p>
+          <div style="font-size:12px;color:var(--texto-3);margin:6px 0 2px">Próximos pagamentos</div>
+          <div class="linha-pag"><span class="marca" style="background:var(--verde)"></span><div class="txt"><div class="n">Estrutura de palco</div><div class="m">Item 001 · vence 22/06</div></div><span class="chip verde">Pago</span></div>
+          <div class="linha-pag"><span class="marca" style="background:var(--ambar)"></span><div class="txt"><div class="n">Iluminação</div><div class="m">Item 014 · vence 24/06</div></div><span class="chip ambar">Em aberto</span></div>
+          <div class="linha-pag"><span class="marca" style="background:var(--acento)"></span><div class="txt"><div class="n">Segurança</div><div class="m">Item 023 · aguardando aprovação</div></div><span class="chip acento">Solicitado</span></div>
         </div>
       </div>
     </div>
   </div>
+</section>
 
-  <div id="app" hidden></div>
+<div class="faixa">
+  <div class="wrap"><b>Comece de onde você já está:</b> importe a sua planilha e ela vira um sistema conectado — cada real do orçamento à prestação de contas.</div>
+</div>
 
-  <div id="toasts" class="toasts"></div>
-  <div id="modal" class="modal-fundo" hidden>
-    <div class="modal" role="dialog" aria-modal="true">
-      <div class="modal-topo">
-        <h2 id="modal-titulo"></h2>
-        <button class="botao-icone" id="modal-fechar" aria-label="Fechar">&times;</button>
+<!-- DESTAQUE 1: PAPÉIS + CELULAR -->
+<section class="bloco" id="papeis">
+  <div class="wrap">
+    <div class="destaque">
+      <div class="lado-txt rev">
+        <div class="tag">Cada um no seu papel</div>
+        <h2>Do campo ao caixa, sem parar pra atualizar planilha.</h2>
+        <p class="d">O produtor está na rua e quase nunca é quem paga. No Backstage ele só <b>solicita o pagamento pelo celular</b> — o financeiro aprova e paga, e o controle <b>se atualiza sozinho</b>. Ninguém mais volta pra casa pra mexer em planilha.</p>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Produtor solicita e o registro atualiza automático</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> É notificado assim que o pagamento é feito</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Papéis definidos: produtor, aprovador, pagador, sócio</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Cada um vê e faz só o que deve — com teto de aprovação</li>
+        </ul>
       </div>
-      <div id="modal-corpo"></div>
+      <div class="lado-mock rev">
+        <div class="fone-wrap"><div class="fone"><div class="tela">
+          <div class="top"></div>
+          <div class="app">
+            <div class="cab">Solicitar pagamento</div>
+            <div class="card-sol">
+              <div class="l">Item</div><div class="campo-fake">023 · Segurança</div>
+              <div class="l">Valor</div><div class="campo-fake">R$ ••••</div>
+              <div class="btn-fake">Enviar solicitação</div>
+            </div>
+            <div class="toast-fake"><span class="dot-v"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Solicitação enviada ao financeiro</div>
+            <div class="toast-fake aviso"><span class="dot-v" style="background:var(--acento-fundo);color:var(--acento-texto)"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg></span> Pagamento realizado — você foi avisado</div>
+          </div>
+        </div></div></div>
+      </div>
     </div>
   </div>
+</section>
+
+<!-- DESTAQUE 2: VISÃO / PAINEL -->
+<section class="bloco" style="background:var(--superficie);border-top:1px solid var(--borda);border-bottom:1px solid var(--borda)">
+  <div class="wrap">
+    <div class="destaque inv">
+      <div class="lado-txt rev">
+        <div class="tag">Uma visão de tudo</div>
+        <h2>O evento e a empresa inteira num só olhar.</h2>
+        <p class="d">Veja o resultado de <b>cada evento</b> e o <b>consolidado da produtora</b> — orçado, pago, recebido e resultado real — de qualquer lugar. E quando precisar apresentar em reunião, um toque <b>oculta todos os valores</b>.</p>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Resultado por evento e consolidado da empresa</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> A receber × a pagar, com previsibilidade</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Privacidade em reunião: esconde os valores num toque</li>
+        </ul>
+      </div>
+      <div class="lado-mock rev">
+        <div class="preview">
+          <div class="barra"><span class="pnt"></span><span class="pnt"></span><span class="pnt"></span><span class="url">consolidado</span></div>
+          <div class="corpo">
+            <div class="mini-tit">Resultado por evento</div>
+            <div class="linha-pag" style="border-top:none;padding-top:2px"><div class="txt"><div class="n">Réveillon Destino</div><div class="m">Recebido − Pago</div></div><span class="v" style="color:var(--verde)">+R$ ••••</span></div>
+            <div class="linha-pag"><div class="txt"><div class="n">São João — Serrinha</div><div class="m">Recebido − Pago</div></div><span class="v" style="color:var(--verde)">+R$ ••••</span></div>
+            <div class="metricas" style="margin-top:14px">
+              <div class="metrica"><div class="rot">A receber · 60 dias</div><div class="val mask">R$ ••••</div></div>
+              <div class="metrica"><div class="rot">A pagar · 60 dias</div><div class="val mask">R$ ••••</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DESTAQUE 3: IMPORTAR PLANILHA -->
+<section class="bloco">
+  <div class="wrap">
+    <div class="destaque">
+      <div class="lado-txt rev">
+        <div class="tag">Comece pela sua planilha</div>
+        <h2>Traga o que você já tem — nada fica pra trás.</h2>
+        <p class="d">Quem produz evento vive no Excel. Então <b>importe a sua planilha de custos</b> e ela vira um orçamento vivo, <b>sempre conectado aos pagamentos</b>. Cada item sabe quanto foi solicitado, aprovado e pago.</p>
+        <ul>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Importação da planilha de custos em minutos</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Orçamento e pagamentos sempre em sincronia</li>
+          <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg> Fornecedores e dados de Pix salvos — sem pedir toda vez</li>
+        </ul>
+      </div>
+      <div class="lado-mock rev">
+        <div class="mock">
+          <div class="cab"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Importar orçamento</div>
+          <div class="conteudo">
+            <div class="seta-import">
+              <span class="pill-xls"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> planilha.xlsx</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+              <span class="pill-app">Backstage</span>
+            </div>
+            <table class="tab-min">
+              <thead><tr><th>Item</th><th>Andamento</th><th class="num">Pago</th></tr></thead>
+              <tbody>
+                <tr><td>001 · Palco</td><td><span class="chip verde">Pago</span></td><td class="num">R$ ••••</td></tr>
+                <tr><td>014 · Iluminação</td><td><div class="barra-prog"><i style="width:40%"></i></div></td><td class="num">R$ ••••</td></tr>
+                <tr><td>023 · Segurança</td><td><span class="chip acento">Solicitado</span></td><td class="num">R$ ••••</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- GRADE COMPACTA -->
+<section class="bloco" id="recursos" style="background:var(--superficie);border-top:1px solid var(--borda)">
+  <div class="wrap">
+    <div class="cabeca-sec rev">
+      <div class="tag">E ainda</div>
+      <h2>Tudo o que a produção precisa controlar</h2>
+      <p>Do primeiro orçamento à prestação de contas, num sistema só.</p>
+    </div>
+    <div class="grade-mais">
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><h3>Agenda de pagamentos</h3><p>Priorizada e previsível, por vencimento, com urgências.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-9M14 17H5M17 3a4 4 0 0 0 0 8M7 13a4 4 0 0 0 0 8"/></svg></div><h3>Verba do produtor</h3><p>Ele controla a própria verba e a prestação de contas fica fácil.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16l7-3z"/></svg></div><h3>Fornecedores salvos</h3><p>Dados de Pix e conta guardados — sem pedir a cada pagamento.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><h3>Aprovações com alçada</h3><p>Cada aprovador com o seu teto. Autor, data e justificativa em tudo.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg></div><h3>Comprovantes e histórico</h3><p>Anexe comprovantes e tenha o rastro completo de cada real.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg></div><h3>Receitas e bilheteria</h3><p>Entradas por fonte, previsto × recebido, resultado do evento.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></div><h3>Privacidade em reunião</h3><p>Um toque oculta todos os valores para apresentar sem expor.</p></div>
+      <div class="mini rev"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H5.2L4 17.5z"/></svg></div><h3>Avisos por email</h3><p>Solicitação, aprovação e pagamento — cada etapa notificada.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- COMO FUNCIONA -->
+<section class="bloco" id="como">
+  <div class="wrap">
+    <div class="cabeca-sec rev">
+      <div class="tag">Como funciona</div>
+      <h2>Do orçamento ao resultado, em três passos</h2>
+    </div>
+    <div class="passos">
+      <div class="passo rev"><div class="num">1</div><h3>Importe e monte o evento</h3><p>Traga sua planilha de custos e defina quem participa — e o que cada um pode fazer.</p></div>
+      <div class="passo rev"><div class="num">2</div><h3>Solicite, aprove, pague</h3><p>O produtor solicita pelo celular, o financeiro aprova e paga. Tudo com comprovante e rastro.</p></div>
+      <div class="passo rev"><div class="num">3</div><h3>Acompanhe o resultado</h3><p>Veja o andamento de cada item e o consolidado da produtora, receitas e despesas lado a lado.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CONTATO -->
+<section class="bloco" id="contato" style="background:var(--superficie);border-top:1px solid var(--borda)">
+  <div class="wrap">
+    <div class="cabeca-sec rev">
+      <div class="tag">Contato</div>
+      <h2>Quer conhecer o Backstage?</h2>
+      <p>Conte um pouco sobre a sua produtora. A gente responde com uma demonstração.</p>
+    </div>
+    <div class="contato-cartao rev">
+      <form id="form-contato" novalidate>
+        <div class="dupla">
+          <div class="campo"><label for="c-nome">Seu nome</label><input class="controle" id="c-nome" name="nome" autocomplete="name" required></div>
+          <div class="campo"><label for="c-email">Email</label><input class="controle" id="c-email" name="email" type="email" autocomplete="email" placeholder="voce@produtora.com.br" required></div>
+        </div>
+        <div class="campo"><label for="c-produtora">Produtora</label><input class="controle" id="c-produtora" name="produtora" placeholder="Nome da sua produtora"></div>
+        <div class="campo"><label for="c-msg">Mensagem</label><textarea class="controle" id="c-msg" name="mensagem" placeholder="O que você gostaria de resolver?"></textarea></div>
+        <button class="btn btn-primario" id="c-enviar" type="submit" style="width:100%">Enviar</button>
+        <div class="msg" id="c-retorno"></div>
+      </form>
+      <div class="contato-alt">Prefere direto? <a href="mailto:psi.cicerorocha@gmail.com?subject=Interesse%20no%20Backstage">psi.cicerorocha@gmail.com</a></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <img class="logo" src="brand/backstage-lockup-horizontal-white.svg" alt="Backstage">
+    <div class="links">
+      <a href="#papeis">Papéis</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#como">Como funciona</a>
+      <a href="#contato">Contato</a>
+      <a href="/login">Entrar</a>
+    </div>
+    <div class="fim">
+      <span>© <span id="ano"></span> Backstage — Uma ferramenta Facility</span>
+      <span>Gestão financeira para produtoras de eventos</span>
+    </div>
+  </div>
+</footer>
 
 <script>
-// Rede de segurança: roda ANTES dos módulos, para que qualquer falha
-// apareça na tela em vez de deixar o usuário olhando um giro infinito.
-(function () {
-  var mostrado = false;
+  document.getElementById('ano').textContent = new Date().getFullYear();
+  const io = new IntersectionObserver((es)=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('vis');io.unobserve(e.target)}})},{threshold:.12});
+  document.querySelectorAll('.rev').forEach(el=>io.observe(el));
 
-  window.BACKSTAGE_FALHA = function (dica, detalhe) {
-    if (mostrado) return;
-    mostrado = true;
-    var f = document.getElementById('falha');
-    if (!f) return;
-    document.getElementById('carregando-texto').textContent = '';
-    document.querySelector('#carregando .girando').style.display = 'none';
-    document.getElementById('falha-dica').textContent = dica || '';
-    document.getElementById('falha-detalhe').textContent = detalhe || '(sem detalhes)';
-    f.hidden = false;
-  };
-
-  window.addEventListener('error', function (e) {
-    if (e.message) window.BACKSTAGE_FALHA(
-      'Algo quebrou ao carregar a aplicação.',
-      e.message + (e.filename ? '\n' + e.filename + ':' + e.lineno : '')
-    );
+  const SUPABASE_URL = 'https://orpaxglmyhtuwgbslkmm.supabase.co';
+  const SUPABASE_CHAVE = 'sb_publishable_une80H5jmvdctWMrLkK2VA_n337cAg5';
+  const form = document.getElementById('form-contato');
+  const ret = document.getElementById('c-retorno');
+  const btn = document.getElementById('c-enviar');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    ret.className='msg';
+    const nome=form.nome.value.trim(), email=form.email.value.trim();
+    if(!nome||!email){ret.className='msg erro';ret.textContent='Preencha nome e email.';return;}
+    btn.disabled=true; const t=btn.textContent; btn.textContent='Enviando...';
+    try{
+      const r=await fetch(SUPABASE_URL+'/functions/v1/contato',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPABASE_CHAVE,'Authorization':'Bearer '+SUPABASE_CHAVE},
+        body:JSON.stringify({nome,email,produtora:form.produtora.value.trim(),mensagem:form.mensagem.value.trim()})
+      });
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||data.erro) throw new Error(data.erro||'Falha no envio');
+      ret.className='msg ok'; ret.textContent='Recebemos seu contato! Em breve retornamos no seu email.'; form.reset();
+    }catch(err){
+      ret.className='msg erro'; ret.innerHTML='Não consegui enviar agora. Fale direto em <a href="mailto:psi.cicerorocha@gmail.com" style="color:inherit;font-weight:600">psi.cicerorocha@gmail.com</a>.';
+    }finally{ btn.disabled=false; btn.textContent=t; }
   });
-
-  window.addEventListener('unhandledrejection', function (e) {
-    var m = (e.reason && (e.reason.message || e.reason)) || 'erro desconhecido';
-    window.BACKSTAGE_FALHA('Uma operação falhou.', String(m));
-  });
-
-  // Se em 15 segundos o aplicativo não apareceu, algo travou.
-  setTimeout(function () {
-    var app = document.getElementById('app');
-    if (app && app.hidden) {
-      window.BACKSTAGE_FALHA(
-        'Demorou demais para carregar. Normalmente é a biblioteca externa bloqueada pela rede — ' +
-        'tente outra conexão (dados do celular, por exemplo) ou abra o diagnóstico.',
-        'Tempo esgotado após 15 segundos.'
-      );
-    }
-  }, 15000);
-
-  document.addEventListener('click', function (e) {
-    if (!e.target) return;
-
-    if (e.target.id === 'btn-copiar') {
-      var t = document.getElementById('falha-detalhe').textContent;
-      navigator.clipboard && navigator.clipboard.writeText(t);
-      e.target.textContent = 'Copiado';
-    }
-
-    if (e.target.id === 'btn-limpar') {
-      try {
-        Object.keys(localStorage).forEach(function (k) {
-          if (k.indexOf('sb-') === 0 || k.toLowerCase().indexOf('supabase') >= 0) {
-            localStorage.removeItem(k);
-          }
-        });
-        sessionStorage.clear();
-      } catch (err) {}
-      location.reload();
-    }
-  });
-})();
 </script>
-
-<script type="module" src="app.js" onerror="window.BACKSTAGE_FALHA('Não consegui carregar o arquivo app.js.','Confira se todos os arquivos subiram para a raiz do repositório.')"></script>
 </body>
 </html>

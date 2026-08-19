@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="64" viewBox="0 0 340 64" fill="none">
+  <defs></defs>
+  <g>
+  <rect x="10" y="8" width="12" height="48" fill="#FFFFFF"></rect>
+  <rect x="31" y="11" width="20" height="14" stroke="#FFFFFF" stroke-width="6" fill="none"></rect>
+  <rect x="28" y="36" width="26" height="20" fill="#FFFFFF"></rect>
+  </g>
+  <text x="86" y="45" font-family="Archivo, Helvetica, Arial, sans-serif" font-weight="600" font-size="46" letter-spacing="-1.8" fill="#FFFFFF">Backstage</text>
+</svg>
