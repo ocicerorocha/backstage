@@ -79,10 +79,17 @@ export async function sair() {
 }
 
 export async function recuperarSenha(email) {
-  const { error } = await bd.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo: window.location.origin + window.location.pathname,
+  const redirectTo = window.location.origin + window.location.pathname;
+  const { data, error } = await bd.functions.invoke('recuperar-senha', {
+    body: { email: (email || '').trim().toLowerCase(), redirectTo },
   });
-  if (error) throw new Error(traduzErro(error.message));
+  if (error) {
+    let msg = 'Não consegui enviar o link de recuperação.';
+    try { const j = await error.context.json(); if (j?.erro) msg = j.erro; }
+    catch (_) { if (error.message) msg = error.message; }
+    throw new Error(msg);
+  }
+  if (data?.erro) throw new Error(data.erro);
 }
 
 export async function definirSenha(novaSenha) {
