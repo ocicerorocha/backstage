@@ -87,7 +87,7 @@ async function montarEstrutura() {
 
   app.innerHTML = `
     <header class="topo">
-      <span class="marca">${esc(APP.nome)}</span>
+      <span class="marca" style="display:inline-flex;align-items:center;gap:8px"><svg width="20" height="20" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true" style="flex-shrink:0"><rect x="10" y="8" width="12" height="48"/><rect x="31" y="11" width="20" height="14" fill="none" stroke="currentColor" stroke-width="6"/><rect x="28" y="36" width="26" height="20"/></svg>${esc(APP.nome)}</span>
       ${empresa ? `
         <span class="topo-empresa" title="Produtora em que você está operando">
           ${empresa.logo_url

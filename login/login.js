@@ -15,6 +15,7 @@ export function telaLogin(aoEntrar, modo = 'entrar') {
     <div class="login-tela">
       <div class="login-caixa">
         <div class="login-marca">
+          <div style="display:flex;justify-content:center;margin-bottom:14px" aria-hidden="true"><svg width="46" height="46" viewBox="0 0 64 64" fill="currentColor" style="color:var(--texto)"><rect x="10" y="8" width="12" height="48"/><rect x="31" y="11" width="20" height="14" fill="none" stroke="currentColor" stroke-width="6"/><rect x="28" y="36" width="26" height="20"/></svg></div>
           <div class="nome">${esc(APP.nome)}</div>
           <div class="desc">${esc(APP.descricao)}</div>
         </div>
@@ -95,6 +96,7 @@ function telaCriarConta(aoEntrar) {
     <div class="login-tela">
       <div class="login-caixa">
         <div class="login-marca">
+          <div style="display:flex;justify-content:center;margin-bottom:14px" aria-hidden="true"><svg width="46" height="46" viewBox="0 0 64 64" fill="currentColor" style="color:var(--texto)"><rect x="10" y="8" width="12" height="48"/><rect x="31" y="11" width="20" height="14" fill="none" stroke="currentColor" stroke-width="6"/><rect x="28" y="36" width="26" height="20"/></svg></div>
           <div class="nome">${esc(APP.nome)}</div>
           <div class="desc">Criar sua conta</div>
         </div>
@@ -166,6 +168,7 @@ function telaNovaSenha(app, aoEntrar) {
     <div class="login-tela">
       <div class="login-caixa">
         <div class="login-marca">
+          <div style="display:flex;justify-content:center;margin-bottom:14px" aria-hidden="true"><svg width="46" height="46" viewBox="0 0 64 64" fill="currentColor" style="color:var(--texto)"><rect x="10" y="8" width="12" height="48"/><rect x="31" y="11" width="20" height="14" fill="none" stroke="currentColor" stroke-width="6"/><rect x="28" y="36" width="26" height="20"/></svg></div>
           <div class="nome">${esc(APP.nome)}</div>
           <div class="desc">Defina sua senha</div>
         </div>
