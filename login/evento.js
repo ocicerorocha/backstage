@@ -2,7 +2,7 @@
 // Dentro de um evento — cabeçalho, abas e painel
 // ═══════════════════════════════════════════════════════
 
-import { buscarEvento, listarItens, minhaPermissao, andamentoItens, listarReceitas } from './nucleo.js';
+import { buscarEvento, listarItens, minhaPermissao, andamentoItens, listarReceitas, encerrarEvento } from './nucleo.js';
 import { esc, aviso, moeda, numero, periodo, dataBR, iniciais, SITUACAO_EVENTO, registrarView } from './ui.js';
 import { abaProducao } from './producao.js';
 import { abaSolicitacoes, abaAprovacoes } from './solicitacoes.js';
@@ -168,6 +168,10 @@ async function abaPainel(alvo) {
   const recebido = receitas.reduce((a, r) => a + Number(r.recebido || 0), 0);
   const resultadoPrevisto = receitaPrevista - orcado;
   const resultadoReal = recebido - pago;
+  const aReceberEv = Math.max(receitaPrevista - recebido, 0);
+  const podeEncerrar = contexto.permissao?.admin
+    && ev.situacao !== 'encerrado'
+    && solicitado > 0.005 && emAberto <= 0.005 && aReceberEv <= 0.005;
   const porFonte = {};
   receitas.forEach(r => {
     const k = r.fonte_nome || 'Sem fonte';
@@ -182,7 +186,31 @@ async function abaPainel(alvo) {
   const ini = ev.data_inicio ? new Date(ev.data_inicio + 'T00:00:00') : null;
   const dias = ini ? Math.round((ini - hoje) / 86400000) : null;
 
+  // contagem de itens por situação (inclui cancelados) e por andamento
+  const SITU = { previsto:['Previsto',''], orcado:['Orçado','acento'], contratado:['Contratado','verde'], cancelado:['Cancelado','vermelho'] };
+  const cSit = { previsto:0, orcado:0, contratado:0, cancelado:0 };
+  contexto.itens.forEach(i => { const s = i.situacao || 'orcado'; if (cSit[s] != null) cSit[s]++; });
+  const cAnd = { a_solicitar:0, solicitado:0, pago_parcial:0, pago:0 };
+  itens.forEach(i => {
+    const orc = Number(i.valor_orcado||0), a = andamento[i.id]||{}, sol = Number(a.solicitado||0), pg = Number(a.pago||0);
+    if (orc>0 && pg >= orc-0.005) cAnd.pago++;
+    else if (pg>0) cAnd.pago_parcial++;
+    else if (sol>0) cAnd.solicitado++;
+    else cAnd.a_solicitar++;
+  });
+  const chipCnt = (rot, n, cls) => `<span class="chip-cnt ${cls}" data-ir-producao="1"><span>${esc(rot)}</span><span class="c">${numero(n)}</span></span>`;
+  const chipsSituacao  = Object.entries(SITU).map(([k,[rot,cls]]) => chipCnt(rot, cSit[k], cls)).join('');
+  const AND = { a_solicitar:['A solicitar',''], solicitado:['Solicitado','acento'], pago_parcial:['Pago parcial','ambar'], pago:['Pago','verde'] };
+  const chipsAndamento = Object.entries(AND).map(([k,[rot,cls]]) => chipCnt(rot, cAnd[k], cls)).join('');
+
   alvo.innerHTML = `
+    <div style="display:flex;justify-content:${podeEncerrar ? 'space-between' : 'flex-end'};align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${podeEncerrar ? `<span class="etiqueta etiqueta-verde">Evento quitado — pronto para encerrar</span>` : ''}
+      <div style="display:flex;gap:8px">
+        ${podeEncerrar ? `<button class="botao botao-primario" id="ev-encerrar" style="height:32px;font-size:13px">Encerrar evento</button>` : ''}
+        <button class="botao" id="ev-pdf" style="height:32px;font-size:13px">Exportar PDF</button>
+      </div>
+    </div>
     ${ini ? `
       <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
         <div class="cartao" style="padding:10px 22px;text-align:center;min-width:118px">
@@ -248,18 +276,33 @@ async function abaPainel(alvo) {
         <div class="rotulo" style="margin-top:2px">solicitado e não pago</div>
       </div>
     </div>
-    <div style="margin-top:12px">
-      <div style="display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--superficie-2)">
-        <div style="width:${pct(pago)}%;background:var(--verde)"></div>
-        <div style="width:${pct(emAberto)}%;background:var(--ambar)"></div>
-        <div style="width:${pct(aSolicitar)}%;background:var(--texto-3)"></div>
+    <div class="cartao" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:12px">
+      <div style="position:relative;width:150px;height:150px;flex-shrink:0">
+        <svg width="150" height="150" viewBox="0 0 150 150" style="transform:rotate(-90deg)">
+          <circle cx="75" cy="75" r="52" fill="none" stroke="var(--superficie-2)" stroke-width="16"/>
+          ${pago > 0 ? `<circle cx="75" cy="75" r="52" fill="none" stroke="var(--verde)" stroke-width="16" stroke-dasharray="${(326.726*pago/(orcado||1)).toFixed(1)} 326.726" stroke-dashoffset="0"/>` : ''}
+          ${emAberto > 0 ? `<circle cx="75" cy="75" r="52" fill="none" stroke="var(--ambar)" stroke-width="16" stroke-dasharray="${(326.726*emAberto/(orcado||1)).toFixed(1)} 326.726" stroke-dashoffset="${(-326.726*pago/(orcado||1)).toFixed(1)}"/>` : ''}
+          ${aSolicitar > 0 ? `<circle cx="75" cy="75" r="52" fill="none" stroke="var(--borda-forte)" stroke-width="16" stroke-dasharray="${(326.726*aSolicitar/(orcado||1)).toFixed(1)} 326.726" stroke-dashoffset="${(-326.726*(pago+emAberto)/(orcado||1)).toFixed(1)}"/>` : ''}
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <div style="font-family:inherit;font-size:27px;font-weight:700;color:var(--verde);line-height:1">${orcado>0?Math.round(pago/orcado*100):0}%</div>
+          <div style="font-size:11px;color:var(--texto-2)">pago</div>
+        </div>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:8px;font-size:12px;color:var(--texto-2)">
-        <span>${pontinho('var(--verde)')}Pago · ${moeda(pago)}</span>
-        <span>${pontinho('var(--ambar)')}Em aberto · ${moeda(emAberto)}</span>
-        <span>${pontinho('var(--texto-3)')}A solicitar · ${moeda(aSolicitar)}</span>
+      <div style="flex:1;min-width:160px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px">${pontinho('var(--verde)')}Pago<span class="num" style="margin-left:auto;font-weight:600">${moeda(pago)}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px">${pontinho('var(--ambar)')}Em aberto<span class="num" style="margin-left:auto;font-weight:600">${moeda(emAberto)}</span></div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:13px">${pontinho('var(--borda-forte)')}A solicitar<span class="num" style="margin-left:auto;font-weight:600">${moeda(aSolicitar)}</span></div>
+        <div class="rotulo" style="margin-top:2px">${pago>=orcado&&orcado>0 ? '<span style="color:var(--verde);font-weight:600">100% pago — tudo quitado 🎉</span>' : 'sobre o orçado de '+moeda(orcado)}</div>
       </div>
-      <div class="rotulo" style="margin-top:4px">sobre o orçado de ${moeda(orcado)}</div>
+    </div>
+
+    <h2 style="font-size:15px;margin:24px 0 10px">Itens <span class="rotulo" style="font-weight:400">· toque para ver na Produção</span></h2>
+    <div class="cartao">
+      <div class="rotulo" style="margin-bottom:8px">Por situação</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">${chipsSituacao}</div>
+      <div class="rotulo" style="margin-bottom:8px">Por andamento</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${chipsAndamento}</div>
     </div>
 
     <h2 style="font-size:15px;margin:24px 0 10px">Gastos por categoria</h2>
@@ -301,4 +344,17 @@ async function abaPainel(alvo) {
       <h2 style="font-size:15px;margin:24px 0 10px">Receitas por fonte</h2>
       <div class="cartao" style="color:var(--texto-2);font-size:14px">Nenhuma receita cadastrada ainda.</div>`) : ''}
   `;
+
+  alvo.querySelectorAll('[data-ir-producao]').forEach(el =>
+    el.addEventListener('click', () => { contexto.aba = 'producao'; desenhar(); }));
+  alvo.querySelector('#ev-pdf')?.addEventListener('click', () => window.print());
+  alvo.querySelector('#ev-encerrar')?.addEventListener('click', async () => {
+    if (!confirm('Encerrar este evento? Isso trava novos lançamentos (itens, solicitações, receitas). Dá pra reabrir depois mudando a situação no cadastro do evento.')) return;
+    try {
+      await encerrarEvento(ev.id);
+      contexto.evento.situacao = 'encerrado';
+      aviso('Evento encerrado.');
+      desenhar();
+    } catch (e) { aviso(e.message, 'erro'); }
+  });
 }

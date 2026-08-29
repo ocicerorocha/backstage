@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════
 
 import {
-  empresaAtual, resumoEventos, fluxoMensal, listarAgenda, listarAgendaReceita,
+  empresaAtual, resumoEventos, fluxoMensal, fluxoDiario, listarAgenda, listarAgendaReceita,
 } from './nucleo.js';
 import { esc, moeda, numero, dataBR, SITUACAO_EVENTO, registrarView, privadoAtivo } from './ui.js';
 import { telaEvento } from './evento.js';
@@ -25,13 +25,14 @@ export async function telaPainelEmpresa() {
   alvo.innerHTML = `<div style="padding:40px;text-align:center;color:var(--texto-2)">Carregando o painel...</div>`;
 
   try {
-    const [eventos, fluxo, agPagar, agReceber] = await Promise.all([
+    const [eventos, fluxo, fluxoDia, agPagar, agReceber] = await Promise.all([
       resumoEventos(emp.id),
       fluxoMensal(emp.id),
+      fluxoDiario(emp.id).catch(() => []),
       listarAgenda(emp.id).catch(() => []),
       listarAgendaReceita(emp.id).catch(() => []),
     ]);
-    _dados = { emp, eventos, fluxo, agPagar, agReceber };
+    _dados = { emp, eventos, fluxo, fluxoDia, agPagar, agReceber };
   } catch (e) {
     alvo.innerHTML = `<div class="vazio"><h3>Não consegui abrir o painel</h3><p>${esc(e.message)}</p></div>`;
     return;
@@ -51,6 +52,14 @@ function desenhar() {
   if (!_dados) return;
   const { eventos, agPagar, agReceber } = _dados;
 
+  const cEv = { planejamento:0, em_execucao:0, encerrado:0 };
+  eventos.forEach(e => { const s = e.situacao || 'planejamento'; if (cEv[s] != null) cEv[s]++; });
+  const hojeD = new Date(); hojeD.setHours(0, 0, 0, 0);
+  const proximos = eventos
+    .filter(e => e.data_inicio && new Date(e.data_inicio + 'T00:00:00') >= hojeD)
+    .sort((a, b) => String(a.data_inicio).localeCompare(String(b.data_inicio)))
+    .slice(0, 5);
+
   const orcado = eventos.reduce((a, e) => a + Number(e.orcado || 0), 0);
   const pago = eventos.reduce((a, e) => a + Number(e.pago || 0), 0);
   const receitaPrev = eventos.reduce((a, e) => a + Number(e.receita_prevista || 0), 0);
@@ -69,9 +78,19 @@ function desenhar() {
   const oculto = privadoAtivo();
 
   alvo.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:6px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px">
       <h1 style="margin:0">${esc(_dados.emp?.nome || 'Painel')}</h1>
-      <div style="font-size:13px;color:var(--texto-2)">${numero(eventos.length)} ${eventos.length === 1 ? 'evento' : 'eventos'}</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:13px;color:var(--texto-2)">${numero(eventos.length)} ${eventos.length === 1 ? 'evento' : 'eventos'}</div>
+        <button class="botao" id="pe-pdf" style="height:32px;font-size:13px">Exportar PDF</button>
+      </div>
+    </div>
+
+    <div class="status-eventos">
+      <div class="se"><div class="n">${numero(eventos.length)}</div><div class="l">Total</div></div>
+      <div class="se"><div class="n" style="color:var(--texto-2)">${numero(cEv.planejamento)}</div><div class="l">Em planejamento</div></div>
+      <div class="se"><div class="n" style="color:var(--acento-texto)">${numero(cEv.em_execucao)}</div><div class="l">Em execução</div></div>
+      <div class="se"><div class="n" style="color:var(--verde)">${numero(cEv.encerrado)}</div><div class="l">Encerrado</div></div>
     </div>
 
     <h2 style="font-size:15px;margin:20px 0 10px">Consolidado</h2>
@@ -95,7 +114,7 @@ function desenhar() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin:22px 0 10px;flex-wrap:wrap;gap:8px">
       <h2 style="font-size:15px;margin:0">Receita × gastos no tempo</h2>
       <div style="display:flex;gap:6px">
-        ${[[6, '6 meses'], [12, '12 meses'], [999, 'geral']].map(([n, r]) =>
+        ${[[30, '30 dias'], [6, '6 meses'], [12, '12 meses'], [999, 'geral']].map(([n, r]) =>
           `<button class="botao" data-per="${n}" style="height:30px;font-size:12px${_periodo === n ? ';border-color:var(--acento);color:var(--acento)' : ''}">${r}</button>`).join('')}
       </div>
     </div>
@@ -112,6 +131,19 @@ function desenhar() {
     </div>
     ${oculto ? boxOculto(200) : `<div style="position:relative;width:100%;height:200px"><canvas id="pe-barra"></canvas></div>`}
 
+    <h2 style="font-size:15px;margin:22px 0 10px">Próximos eventos</h2>
+    <div class="cartao" style="padding:0;overflow:hidden;margin-bottom:8px">
+      ${proximos.length ? proximos.map(e => {
+        const d = new Date(e.data_inicio + 'T00:00:00');
+        const faltam = Math.round((d - hojeD) / 86400000);
+        return `<div class="linha-lista" data-evento="${esc(e.evento_id)}" style="cursor:pointer">
+          <div style="flex:1;min-width:0"><div style="font-weight:500;font-size:14px">${esc(e.nome)}</div>
+            <div style="font-size:12px;color:var(--texto-2)">${dataBR(e.data_inicio)}${e.cidade ? ' · ' + esc(e.cidade) : ''}</div></div>
+          <span class="etiqueta etiqueta-neutra">${faltam === 0 ? 'hoje' : 'em ' + faltam + 'd'}</span>
+        </div>`;
+      }).join('') : '<div style="padding:20px;text-align:center;color:var(--texto-2);font-size:14px">Nenhum evento futuro agendado.</div>'}
+    </div>
+
     <h2 style="font-size:15px;margin:22px 0 10px">Por evento</h2>
     <div style="display:flex;flex-direction:column;gap:10px">
       ${eventos.length ? eventos.map(cartaoEvento).join('') : '<p class="dica">Nenhum evento ainda.</p>'}
@@ -122,6 +154,7 @@ function desenhar() {
     b.addEventListener('click', () => { _periodo = Number(b.dataset.per); desenhar(); }));
   alvo.querySelectorAll('[data-evento]').forEach(el =>
     el.addEventListener('click', () => telaEvento(el.dataset.evento)));
+  alvo.querySelector('#pe-pdf')?.addEventListener('click', () => window.print());
 
   if (!oculto) desenharGraficos();
 }
@@ -178,11 +211,27 @@ function eixoTicks() {
 function renderLinha() {
   const cv = document.getElementById('pe-linha');
   if (!cv || !_Chart) return;
-  let fluxo = _dados.fluxo.slice();
-  if (_periodo < 900) fluxo = fluxo.slice(-_periodo);
-  const labels = fluxo.map(f => rotuloMes(f.mes));
-  const rec = fluxo.map(f => Number(f.recebido || 0));
-  const pag = fluxo.map(f => Number(f.pago || 0));
+  let labels, rec, pag;
+  if (_periodo === 30) {
+    const map = {};
+    (_dados.fluxoDia || []).forEach(f => { map[String(f.dia).slice(0, 10)] = f; });
+    labels = []; rec = []; pag = [];
+    const base = new Date(); base.setHours(0, 0, 0, 0);
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(base); d.setDate(d.getDate() - i);
+      const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const f = map[iso] || {};
+      labels.push(iso.slice(8,10) + '/' + iso.slice(5,7));
+      rec.push(Number(f.recebido || 0));
+      pag.push(Number(f.pago || 0));
+    }
+  } else {
+    let fluxo = _dados.fluxo.slice();
+    if (_periodo < 900) fluxo = fluxo.slice(-_periodo);
+    labels = fluxo.map(f => rotuloMes(f.mes));
+    rec = fluxo.map(f => Number(f.recebido || 0));
+    pag = fluxo.map(f => Number(f.pago || 0));
+  }
   if (_cLinha) _cLinha.destroy();
   _cLinha = new _Chart(cv, {
     type: 'line',

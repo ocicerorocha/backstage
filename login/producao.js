@@ -133,6 +133,7 @@ function desenhar(alvo) {
       ${filtroMenu('Situação', 'sit', Object.entries(SITUACOES).map(([v, s]) => [v, s.rotulo]), _filtroSituacoes)}
       ${filtroMenu('Andamento', 'and', Object.entries(ANDAMENTO).map(([v, a]) => [v, a.rotulo]), _filtroAndamentos)}
       ${temFiltro ? `<button class="botao" id="p-limpar" style="height:36px">Limpar</button>` : ''}
+      ${itens.length ? `<button class="botao" id="p-exportar" style="height:36px">Exportar</button>` : ''}
       ${podeEditar && aberto ? `
         <button class="botao" id="p-importar">Importar planilha</button>
         <button class="botao botao-primario" id="p-novo">Novo item</button>` : ''}
@@ -221,6 +222,7 @@ function desenhar(alvo) {
   }
   q('#p-novo')?.addEventListener('click', () => modalItem(null));
   q('#p-novo2')?.addEventListener('click', () => modalItem(null));
+  q('#p-exportar')?.addEventListener('click', () => exportarPlanilha(itens));
   q('#p-importar')?.addEventListener('click', () => abrirImportacao(_categorias));
   q('#p-importar2')?.addEventListener('click', () => abrirImportacao(_categorias));
 
@@ -575,4 +577,34 @@ async function modalPrestacao(item) {
       } catch (err) { aviso(err.message, 'erro'); }
     });
   });
+}
+
+/* ── exportar a produção para planilha (.xlsx) ─────── */
+async function exportarPlanilha(itens) {
+  try {
+    const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+    const ev = contexto.evento;
+    const SIT = { previsto:'Previsto', orcado:'Orçado', contratado:'Contratado', cancelado:'Cancelado' };
+    const linhas = itens.map(i => {
+      const a = _andamento[i.id] || {};
+      return {
+        'Nº': String(i.numero || '').padStart(3, '0'),
+        'Item': i.descricao || '',
+        'Categoria': i.categoria_nome || '',
+        'Fornecedor': i.fornecedor_nome || '',
+        'Ano anterior': Number(i.custo_referencia || 0),
+        'Orçado': Number(i.valor_orcado || 0),
+        'Solicitado': Number(a.solicitado || 0),
+        'Pago': Number(a.pago || 0),
+        'Situação': SIT[i.situacao] || i.situacao || '',
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Produção');
+    const nome = `Producao_${String(ev?.nome || 'evento').replace(/[^\w]+/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, nome);
+  } catch (e) {
+    aviso('Não consegui exportar: ' + e.message, 'erro');
+  }
 }

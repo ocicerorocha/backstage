@@ -1010,3 +1010,41 @@ export async function listarAgendaReceita(empresaId) {
   if (error) throw error;
   return (data || []).filter(p => Number(p.falta) > 0.005);
 }
+
+// Recebido e pago por DIA (últimos ~60 dias) — para o filtro de 30 dias no painel.
+export async function fluxoDiario(empresaId) {
+  const { data, error } = await bd
+    .from('fluxo_diario')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('dia');
+  if (error) { console.warn('fluxo diário:', error.message); return []; }
+  return data || [];
+}
+
+// Posição de cada parcela dentro da sua solicitação (nº, total e valor).
+export async function posicaoParcelas(ids) {
+  if (!ids || !ids.length) return {};
+  const { data, error } = await bd.from('parcela_num').select('*').in('parcela_id', ids);
+  if (error) { console.warn('posição parcelas:', error.message); return {}; }
+  const m = {};
+  (data || []).forEach(p => { m[p.parcela_id] = p; });
+  return m;
+}
+
+// Histórico de pagamentos realizados da produtora (para a aba "Pagos").
+export async function pagamentosRealizados(empresaId) {
+  const { data, error } = await bd
+    .from('pagamento_visao')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('data', { ascending: false });
+  if (error) { console.warn('pagamentos realizados:', error.message); return []; }
+  return data || [];
+}
+
+// Encerra o evento (trava novos lançamentos). Reversível mudando a situação no cadastro.
+export async function encerrarEvento(id) {
+  const { error } = await bd.from('evento').update({ situacao: 'encerrado' }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}

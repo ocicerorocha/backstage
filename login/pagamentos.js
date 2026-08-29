@@ -15,6 +15,7 @@ import {
   empresaAtual, listarAgenda, adiamentosDasParcelas, pagamentosDaParcela,
   registrarPagamento, estornarPagamento, adiarParcela, marcarUrgente,
   enviarComprovante, linkComprovante, comprimirImagem, listarFontes, sessao,
+  posicaoParcelas, pagamentosRealizados,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
 
@@ -22,6 +23,17 @@ let _linhas = [];
 let _adiamentos = [];
 let _filtroEvento = '';
 let _soUrgentes = false;
+let _aba = 'apagar';   // 'apagar' | 'pagos'
+let _pagos = [];
+let _pos = {};         // parcela_id -> { num, total, valor }
+
+function abasPag() {
+  return `
+    <div class="abas" style="margin-bottom:16px">
+      <button class="aba ${_aba === 'apagar' ? 'ativa' : ''}" data-aba="apagar">A pagar</button>
+      <button class="aba ${_aba === 'pagos' ? 'ativa' : ''}" data-aba="pagos">Pagos</button>
+    </div>`;
+}
 
 const hoje = () => new Date().toISOString().slice(0, 10);
 
@@ -35,7 +47,12 @@ export async function telaPagamentos() {
 
   alvo.innerHTML = `<div style="padding:40px;text-align:center;color:var(--texto-2)">Carregando agenda...</div>`;
   try {
-    [_linhas, _adiamentos] = await Promise.all([listarAgenda(emp.id), adiamentosDasParcelas()]);
+    [_linhas, _adiamentos, _pagos] = await Promise.all([
+      listarAgenda(emp.id),
+      adiamentosDasParcelas(),
+      pagamentosRealizados(emp.id).catch(() => []),
+    ]);
+    _pos = await posicaoParcelas(_linhas.map(l => l.parcela_id));
   } catch (e) {
     alvo.innerHTML = `<div class="vazio"><h3>Não consegui carregar</h3><p>${esc(e.message)}</p></div>`;
     return;
@@ -44,6 +61,7 @@ export async function telaPagamentos() {
 }
 
 function desenhar(alvo) {
+  if (_aba === 'pagos') return renderPagos(alvo);
   let linhas = _linhas;
   if (_filtroEvento) linhas = linhas.filter(l => l.evento_id === _filtroEvento);
   if (_soUrgentes)   linhas = linhas.filter(l => l.urgente);
@@ -74,8 +92,9 @@ function desenhar(alvo) {
 
   alvo.innerHTML = `
     <div class="pagina-topo">
-      <h1>Agenda de pagamentos</h1>
+      <h1>Pagamentos</h1>
     </div>
+    ${abasPag()}
 
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px">
       <div class="metrica">
@@ -144,6 +163,8 @@ function desenhar(alvo) {
   alvo.querySelector('#a-urgentes').addEventListener('click', () => {
     _soUrgentes = !_soUrgentes; desenhar(alvo);
   });
+  alvo.querySelectorAll('[data-aba]').forEach(b =>
+    b.addEventListener('click', () => { _aba = b.dataset.aba; desenhar(alvo); }));
   alvo.querySelectorAll('[data-pagar]').forEach(b =>
     b.addEventListener('click', e => { e.stopPropagation(); modalPagar(b.dataset.pagar); }));
   alvo.querySelectorAll('[data-adiar]').forEach(b =>
@@ -173,6 +194,7 @@ function cartao(l, vencido) {
           ${esc(l.fornecedor_nome || 'sem favorecido')} · ${esc(l.evento_nome)}
           ${l.vencimento ? ' · vence ' + dataBR(l.vencimento) : ' · sem data'}
         </div>
+        ${_pos[l.parcela_id] ? `<div style="font-size:12px;color:var(--texto-3);margin-top:2px">Parcela ${_pos[l.parcela_id].num}/${_pos[l.parcela_id].total} · total ${moeda(_pos[l.parcela_id].valor)}${Number(l.pago) > 0.005 ? ' · pago ' + moeda(l.pago) : ''}</div>` : ''}
         ${l.pag_chave || l.pag_conta ? `
           <div style="font-size:12px;color:var(--texto-3);margin-top:2px">
             ${l.pag_tipo === 'conta'
@@ -215,6 +237,71 @@ function nomeDoDia(iso) {
   const dias = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
   const d = new Date(iso + 'T12:00:00');
   return `${dias[d.getDay()]}, ${dataBR(iso)}`;
+}
+
+/* ── aba Pagos: histórico + comprovantes ───────────── */
+
+function renderPagos(alvo) {
+  let pagos = _pagos;
+  if (_filtroEvento) pagos = pagos.filter(p => p.evento_id === _filtroEvento);
+  const eventos = [...new Map(_pagos.map(p => [p.evento_id, p.evento_nome])).entries()];
+  const total = pagos.reduce((a, p) => a + Number(p.valor || 0), 0);
+
+  alvo.innerHTML = `
+    <div class="pagina-topo"><h1>Pagamentos</h1></div>
+    ${abasPag()}
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px">
+      <div class="metrica">
+        <div class="rotulo">Total pago</div>
+        <div class="valor" style="color:var(--verde)">${moeda(total)}</div>
+        <div class="rotulo" style="margin-top:2px">${pagos.length} ${pagos.length === 1 ? 'pagamento' : 'pagamentos'}</div>
+      </div>
+    </div>
+
+    <div class="barra-filtros">
+      <select class="controle" id="pg-evento" style="width:auto;min-width:200px">
+        <option value="">Todos os eventos</option>
+        ${eventos.map(([id, nome]) => `<option value="${esc(id)}" ${_filtroEvento === id ? 'selected' : ''}>${esc(nome)}</option>`).join('')}
+      </select>
+    </div>
+
+    ${!pagos.length ? `
+      <div class="vazio"><h3>Nenhum pagamento ainda</h3>
+        <p>Os pagamentos registrados aparecem aqui${_filtroEvento ? ' com este filtro' : ''}, com os comprovantes.</p></div>` : `
+      <div class="cartao" style="padding:0;overflow:hidden">
+        ${pagos.map(p => `
+          <div class="linha-lista">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:500;font-size:14px">
+                <span style="color:var(--texto-3);font-variant-numeric:tabular-nums">${String(p.item_numero || 0).padStart(3, '0')}</span>
+                ${esc(p.item_descricao || '—')}
+              </div>
+              <div style="font-size:12px;color:var(--texto-2)">
+                ${esc(p.evento_nome || '')} · ${dataBR(p.data)}${p.registrado_nome ? ' · ' + esc(p.registrado_nome) : ''}
+              </div>
+              ${p.observacao ? `<div style="font-size:12px;color:var(--texto-3);margin-top:2px">${esc(p.observacao)}</div>` : ''}
+            </div>
+            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+              <span class="num" style="font-weight:600;color:var(--verde)">${moeda(p.valor)}</span>
+              ${p.comprovante_url
+                ? `<button class="botao" style="height:28px;font-size:12px;padding:0 10px" data-comprovante="${esc(p.comprovante_url)}">Ver comprovante</button>`
+                : '<span class="rotulo">sem comprovante</span>'}
+            </div>
+          </div>`).join('')}
+      </div>`}
+  `;
+
+  alvo.querySelectorAll('[data-aba]').forEach(b =>
+    b.addEventListener('click', () => { _aba = b.dataset.aba; desenhar(alvo); }));
+  alvo.querySelector('#pg-evento')?.addEventListener('change', e => {
+    _filtroEvento = e.target.value; renderPagos(alvo);
+  });
+  alvo.querySelectorAll('[data-comprovante]').forEach(b =>
+    b.addEventListener('click', async () => {
+      try { const url = await linkComprovante(b.dataset.comprovante); window.open(url, '_blank'); }
+      catch (e) { aviso(e.message, 'erro'); }
+    }));
 }
 
 /* ── confirmar pagamento ───────────────────────────── */

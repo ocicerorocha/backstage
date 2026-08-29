@@ -87,6 +87,7 @@ async function montarEstrutura() {
 
   app.innerHTML = `
     <header class="topo">
+      ${secoes.length > 1 ? `<button class="btn-menu" id="btn-menu" aria-label="Abrir menu"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>` : ''}
       <span class="marca" style="display:inline-flex;align-items:center;gap:8px"><svg width="20" height="20" viewBox="0 0 64 64" fill="currentColor" aria-hidden="true" style="flex-shrink:0"><rect x="10" y="8" width="12" height="48"/><rect x="31" y="11" width="20" height="14" fill="none" stroke="currentColor" stroke-width="6"/><rect x="28" y="36" width="26" height="20"/></svg>${esc(APP.nome)}</span>
       ${empresa ? `
         <span class="topo-empresa" title="Produtora em que você está operando">
@@ -96,7 +97,7 @@ async function montarEstrutura() {
           <span class="nome">${esc(empresa.nome)}</span>
         </span>` : ''}
       ${secoes.length > 1 ? `
-        <nav class="navegacao">
+        <nav class="navegacao" id="nav">
           ${secoes.map((s, i) => `
             <button class="nav-item ${i === 0 ? 'ativo' : ''}" data-secao="${s.id}">${esc(s.rotulo)}</button>
           `).join('')}
@@ -105,6 +106,7 @@ async function montarEstrutura() {
       <button id="btn-olho" aria-label="Mostrar ou ocultar valores" style="background:none;border:none;cursor:pointer;color:var(--texto-2);display:flex;align-items:center;padding:6px;margin-right:2px"></button> 
       <button class="avatar" id="btn-conta" aria-label="Sua conta">${esc(iniciais(sessao.usuario.nome))}</button>
     </header>
+    <div class="nav-backdrop" id="nav-backdrop" hidden></div>
     <main class="conteudo" id="conteudo"></main>
   `;
   app.hidden = false;
@@ -118,8 +120,13 @@ const olho = document.getElementById('btn-olho');
   const pintarOlho = () => { olho.innerHTML = iconeOlho(privadoAtivo()); };
   pintarOlho();
   olho.addEventListener('click', () => { alternarPrivado(); pintarOlho(); });
+  const backdrop = document.getElementById('nav-backdrop');
+  const fecharMenu = () => { document.body.classList.remove('menu-aberto'); if (backdrop) backdrop.hidden = true; };
+  const abrirMenu  = () => { document.body.classList.add('menu-aberto');    if (backdrop) backdrop.hidden = false; };
+  document.getElementById('btn-menu')?.addEventListener('click', abrirMenu);
+  backdrop?.addEventListener('click', fecharMenu);
   app.querySelectorAll('[data-secao]').forEach(b => {
-    b.addEventListener('click', () => irPara(b.dataset.secao));
+    b.addEventListener('click', () => { fecharMenu(); irPara(b.dataset.secao); });
   });
 
   document.addEventListener('voltar-eventos', () => irPara('eventos'));
