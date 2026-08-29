@@ -680,3 +680,8 @@ select.controle { cursor: pointer; }
   .cartao, .metrica, .pag-cartao, .status-eventos, .grade-mais { break-inside: avoid; }
   a { color: inherit !important; text-decoration: none !important; }
 }
+
+/* Correção do drawer: eleva o cabeçalho (que contém a navegação)
+   acima do backdrop quando o menu está aberto — senão o fundo
+   escuro fica por cima do menu e engole os toques. */
+body.menu-aberto .topo { z-index: 60; }
