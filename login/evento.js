@@ -230,6 +230,36 @@ async function abaPainel(alvo) {
         <button class="botao" id="ev-pdf" style="height:32px;font-size:13px">Exportar PDF</button>
       </div>
     </div>
+    <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-bottom:20px">
+      <div class="cartao">
+        <div style="font-weight:600;font-size:12px;color:var(--texto-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.03em">Orçado × Executado</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span>Orçado <b class="num">${moeda(orcado)}</b></span>
+          <span>Pago <b class="num" style="color:var(--verde)">${moeda(pago)}</b></span>
+        </div>
+        <div style="height:10px;border-radius:20px;background:var(--superficie-2);overflow:hidden"><div style="height:100%;width:${orcado > 0 ? Math.min(100, Math.round(pago / orcado * 100)) : 0}%;background:var(--verde)"></div></div>
+        <div class="rotulo" style="margin-top:5px">${orcado > 0 ? Math.round(pago / orcado * 100) : 0}% executado</div>
+      </div>
+      ${podeVerReceitas ? `
+      <div class="cartao">
+        <div style="font-weight:600;font-size:12px;color:var(--texto-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.03em">Prevista × Recebida</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span>Prevista <b class="num">${moeda(receitaPrevista)}</b></span>
+          <span>Recebida <b class="num" style="color:var(--verde)">${moeda(recebido)}</b></span>
+        </div>
+        <div style="height:10px;border-radius:20px;background:var(--superficie-2);overflow:hidden"><div style="height:100%;width:${receitaPrevista > 0 ? Math.min(100, Math.round(recebido / receitaPrevista * 100)) : 0}%;background:var(--verde)"></div></div>
+        <div class="rotulo" style="margin-top:5px">${receitaPrevista > 0 ? Math.round(recebido / receitaPrevista * 100) : 0}% recebido</div>
+      </div>
+      <div class="cartao">
+        <div style="font-weight:600;font-size:12px;color:var(--texto-2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.03em">Resultado previsto × Fluxo real</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px">
+          <div><div class="rotulo">Previsto</div><div style="font-weight:700;font-size:18px;color:${resultadoPrevisto >= 0 ? 'var(--verde)' : 'var(--vermelho)'}">${resultadoPrevisto >= 0 ? '+' : ''}${moeda(resultadoPrevisto)}</div></div>
+          <div style="text-align:right"><div class="rotulo">Fluxo real</div><div style="font-weight:700;font-size:18px;color:${resultadoReal >= 0 ? 'var(--verde)' : 'var(--vermelho)'}">${resultadoReal >= 0 ? '+' : ''}${moeda(resultadoReal)}</div></div>
+        </div>
+        <div class="rotulo" style="margin-top:6px">previsto = receita − orçado · real = recebido − pago</div>
+      </div>` : ''}
+    </div>
+
     ${ini ? `
       <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
         <div class="cartao" style="padding:10px 22px;text-align:center;min-width:118px">
@@ -239,22 +269,6 @@ async function abaPainel(alvo) {
         </div>
       </div>` : ''}
 
-    ${podeVerReceitas ? (receitas.length ? `
-      <h2 style="font-size:15px;margin:6px 0 10px">Resultado</h2>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
-        <div class="metrica">
-          <div class="rotulo">Previsto</div>
-          <div class="valor" style="color:${resultadoPrevisto >= 0 ? 'var(--verde)' : 'var(--vermelho)'}">${resultadoPrevisto >= 0 ? '+' : ''}${moeda(resultadoPrevisto)}</div>
-          <div class="rotulo" style="margin-top:2px">receita prevista − orçado</div>
-        </div>
-        <div class="metrica">
-          <div class="rotulo">Real até agora</div>
-          <div class="valor" style="color:${resultadoReal >= 0 ? 'var(--verde)' : 'var(--vermelho)'}">${resultadoReal >= 0 ? '+' : ''}${moeda(resultadoReal)}</div>
-          <div class="rotulo" style="margin-top:2px">recebido − pago</div>
-        </div>
-      </div>` : `
-      <h2 style="font-size:15px;margin:6px 0 10px">Resultado</h2>
-      <div class="cartao" style="color:var(--texto-2);font-size:14px">Cadastre receitas na aba Receitas para ver o resultado previsto e real.</div>`) : ''}
 
     <h2 style="font-size:15px;margin:24px 0 10px">Orçamento</h2>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">
@@ -339,7 +353,10 @@ async function abaPainel(alvo) {
           </div>
         </div>`;
       }).join('')}
-      <div class="rotulo" style="margin-top:6px">${pontinho('var(--verde)')}preenchido = já pago · trilha = orçado</div>
+      <div class="rotulo" style="margin-top:6px;display:flex;gap:16px;align-items:center">
+        <span>${pontinho('var(--verde)')}pago</span>
+        <span>${pontinho('var(--borda-forte)')}orçado</span>
+      </div>
     </div>
 
     ${podeVerReceitas ? (receitas.length ? `
@@ -358,7 +375,10 @@ async function abaPainel(alvo) {
             </div>
           </div>`;
         }).join('')}
-        <div class="rotulo" style="margin-top:6px">${pontinho('var(--verde)')}preenchido = recebido · trilha = previsto</div>
+        <div class="rotulo" style="margin-top:6px;display:flex;gap:16px;align-items:center">
+          <span>${pontinho('var(--verde)')}recebido</span>
+          <span>${pontinho('var(--borda-forte)')}previsto</span>
+        </div>
       </div>` : `
       <h2 style="font-size:15px;margin:24px 0 10px">Receitas por fonte</h2>
       <div class="cartao" style="color:var(--texto-2);font-size:14px">Nenhuma receita cadastrada ainda.</div>`) : ''}

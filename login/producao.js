@@ -144,6 +144,7 @@ function desenhar(alvo) {
         <div><span style="font-size:12px;color:var(--texto-3)">Itens </span><strong style="font-variant-numeric:tabular-nums">${itens.length}</strong></div>
         <div><span style="font-size:12px;color:var(--texto-3)">Orçado </span><strong class="num">${moeda(totalOrcado)}</strong></div>
         <div><span style="font-size:12px;color:var(--texto-3)">Pago </span><strong class="num" ${totalPago > 0 ? 'style="color:var(--verde)"' : ''}>${moeda(totalPago)}</strong></div>
+        <div><span style="font-size:12px;color:var(--texto-3)">A pagar </span><strong class="num" style="color:var(--ambar)">${moeda(Math.max(totalOrcado - totalPago, 0))}</strong></div>
         <div><span style="font-size:12px;color:var(--texto-3)">Ano anterior </span><strong class="num" style="color:var(--texto-2)">${moeda(totalRef)}</strong></div>
       </div>` : ''}
 
@@ -160,6 +161,7 @@ function desenhar(alvo) {
               <th style="width:120px" class="num">Ano anterior</th>
               <th style="width:130px" class="num">Orçado</th>
               <th style="width:130px" class="num">Pago</th>
+              <th style="width:130px" class="num">A pagar</th>
               <th style="width:150px">Situação</th>
               ${podeSolicitar ? '<th style="width:44px"></th>' : ''}
               ${podeEditar ? '<th style="width:44px"></th>' : ''}
@@ -291,6 +293,9 @@ function linha(i, podeEditar, podeSolicitar) {
       <td class="num">
         ${pago > 0.005 ? `<span style="color:var(--verde);font-weight:500">${moeda(pago)}</span>` : '<span style="color:var(--texto-3)">—</span>'}
         ${emFluxo > 0.005 ? `<div style="font-size:11px;color:var(--texto-2)">em fluxo ${moeda(emFluxo)}</div>` : ''}
+      </td>
+      <td class="num">
+        ${(() => { const orc = Number(i.valor_orcado || 0); const ap = Math.max(orc - pago, 0); if (orc <= 0.005) return '<span style="color:var(--texto-3)">—</span>'; return ap > 0.005 ? `<span style="color:var(--ambar);font-weight:500">${moeda(ap)}</span>` : '<span style="color:var(--verde);font-weight:500">quitado</span>'; })()}
       </td>
       <td>
         <span class="etiqueta ${s.classe}">${s.rotulo}</span>
