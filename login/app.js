@@ -165,18 +165,17 @@ function garantirTermos() {
     <div style="background:var(--superficie);color:var(--texto);max-width:520px;width:100%;border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;overflow:auto">
       <h2 style="margin:0 0 6px;font-size:20px">Antes de começar</h2>
       <p style="color:var(--texto-2);font-size:14px;margin:0 0 16px">
-        Para usar o ${esc(APP.nome)} é preciso aceitar os Termos de Uso e a Política de Privacidade.
+        Um resumo rápido de como o ${esc(APP.nome)} cuida dos seus dados.
       </p>
       <div style="background:var(--superficie-2);border-radius:12px;padding:16px;font-size:13px;line-height:1.55;color:var(--texto-2);margin-bottom:18px">
-        Em resumo: seus dados e os dos seus eventos são seus e ficam isolados por produtora.
-        O ${esc(APP.nome)} guarda e organiza essas informações para você e sua equipe, com
-        acesso controlado por permissões. Não vendemos seus dados. Você pode solicitar
-        exclusão a qualquer momento.
-        <a href="https://usebackstage.com.br/termos" target="_blank" rel="noopener" style="color:var(--acento-texto);display:inline-block;margin-top:8px">Ler os termos completos ↗</a>
+        Seus dados e os dos seus eventos são seus e ficam isolados por produtora — uma produtora
+        nunca enxerga os dados de outra. O ${esc(APP.nome)} guarda e organiza essas informações
+        para você e sua equipe, com acesso controlado por permissões. Não vendemos seus dados, e
+        você pode solicitar exclusão a qualquer momento.
       </div>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;margin-bottom:18px">
         <input type="checkbox" id="termos-ok" style="margin-top:3px;flex-shrink:0">
-        <span>Li e aceito os Termos de Uso e a Política de Privacidade do ${esc(APP.nome)}.</span>
+        <span>Li e concordo com a forma como o ${esc(APP.nome)} trata meus dados, descrita acima.</span>
       </label>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button type="button" class="botao" id="termos-sair">Sair</button>
