@@ -17,7 +17,7 @@ import {
   enviarComprovante, linkComprovante, comprimirImagem, listarFontes, listarContas, sessao,
   posicaoParcelas, pagamentosRealizados,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, aplicarMascaraMoeda, lerMoeda } from './ui.js';
 
 let _linhas = [];
 let _adiamentos = [];
@@ -370,7 +370,7 @@ async function modalPagar(parcelaId) {
       <div class="linha linha-2">
         <div class="campo">
           <label for="pg-valor">Valor pago</label>
-          <input class="controle" id="pg-valor" type="number" min="0.01" step="0.01"
+          <input class="controle" id="pg-valor" data-moeda
                  value="${Number(l.falta).toFixed(2)}" required>
           <div class="dica">Falta ${moeda(l.falta)} nesta parcela</div>
         </div>
@@ -412,6 +412,7 @@ async function modalPagar(parcelaId) {
 
   const q = s => document.querySelector(s);
   let arquivo = null;
+  aplicarMascaraMoeda();
 
   q('#pg-cancelar').addEventListener('click', fecharModal);
   q('#pg-area').addEventListener('click', () => q('#pg-arq').click());
@@ -438,7 +439,7 @@ async function modalPagar(parcelaId) {
 
   q('#fpg').addEventListener('submit', async e => {
     e.preventDefault();
-    const valor = Number(q('#pg-valor').value) || 0;
+    const valor = lerMoeda(q('#pg-valor'));
     if (valor <= 0) return aviso('Informe o valor pago.', 'aviso');
 
     await comBotao(q('#pg-salvar'), async () => {

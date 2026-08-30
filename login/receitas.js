@@ -11,7 +11,7 @@ import {
   registrarRecebimento, estornarRecebimento, listarContas,
   listarEventos, empresaAtual,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, aplicarMascaraMoeda, lerMoeda } from './ui.js';
 import { contexto } from './evento.js';
 
 const SITUACOES = {
@@ -386,7 +386,7 @@ async function modalRecebimento(parcelaId, falta, alvo) {
       <div class="linha linha-2">
         <div class="campo">
           <label for="rc-valor">Valor</label>
-          <input class="controle" id="rc-valor" type="number" min="0.01" step="0.01"
+          <input class="controle" id="rc-valor" data-moeda
                  value="${falta > 0 ? falta.toFixed(2) : ''}" required>
         </div>
         <div class="campo">
@@ -414,10 +414,11 @@ async function modalRecebimento(parcelaId, falta, alvo) {
   `);
 
   const q = s => document.querySelector(s);
+  aplicarMascaraMoeda();
   q('#rc-cancelar').addEventListener('click', fecharModal);
   q('#frc').addEventListener('submit', async e => {
     e.preventDefault();
-    const valor = Number(q('#rc-valor').value) || 0;
+    const valor = lerMoeda(q('#rc-valor'));
     if (valor <= 0) return aviso('Informe o valor.', 'aviso');
     await comBotao(q('#rc-salvar'), async () => {
       try {

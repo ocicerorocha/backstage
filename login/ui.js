@@ -195,3 +195,33 @@ export function alternarPrivado() { _privado = !_privado; repintarView(); return
 let _viewAtual = null;
 export function registrarView(fn) { _viewAtual = fn; }
 export function repintarView() { if (_viewAtual) _viewAtual(); }
+
+/* ── máscara de moeda (formata enquanto digita) ────── */
+// Aplique data-moeda no input (type text). Ex.: <input class="controle" data-moeda>
+// Depois de montar o modal/tela, chame aplicarMascaraMoeda(container).
+// Para ler o número, use lerMoeda(input).
+export function aplicarMascaraMoeda(root) {
+  const alvo = root || document;
+  alvo.querySelectorAll('input[data-moeda]').forEach((inp) => {
+    if (inp._moedaOn) return;
+    inp._moedaOn = true;
+    inp.setAttribute('type', 'text');
+    inp.setAttribute('inputmode', 'numeric');
+    const fmt = (cent) => (cent / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // valor inicial (número comum, ex. "1500.50") → centavos formatados
+    const bruto = String(inp.value || '').trim().replace(',', '.');
+    const iniC = bruto !== '' && !isNaN(Number(bruto)) ? Math.round(Number(bruto) * 100) : 0;
+    inp.value = iniC > 0 ? fmt(iniC) : '';
+    inp.addEventListener('input', () => {
+      const d = inp.value.replace(/\D/g, '');
+      const c = d ? parseInt(d, 10) : 0;
+      inp.value = c > 0 ? fmt(c) : '';
+      try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
+    });
+  });
+}
+
+export function lerMoeda(input) {
+  const d = String(input?.value || '').replace(/\D/g, '');
+  return d ? parseInt(d, 10) / 100 : 0;
+}
