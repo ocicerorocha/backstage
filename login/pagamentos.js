@@ -14,7 +14,7 @@
 import {
   empresaAtual, listarAgenda, adiamentosDasParcelas, pagamentosDaParcela,
   registrarPagamento, estornarPagamento, adiarParcela, marcarUrgente,
-  enviarComprovante, linkComprovante, comprimirImagem, listarFontes, sessao,
+  enviarComprovante, linkComprovante, comprimirImagem, listarFontes, listarContas, sessao,
   posicaoParcelas, pagamentosRealizados,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
@@ -310,10 +310,10 @@ async function modalPagar(parcelaId) {
   const l = _linhas.find(x => x.parcela_id === parcelaId);
   if (!l) return;
 
-  let fontes = [], anteriores = [];
+  let contas = [], anteriores = [];
   try {
-    [fontes, anteriores] = await Promise.all([
-      listarFontes(l.evento_id), pagamentosDaParcela(parcelaId),
+    [contas, anteriores] = await Promise.all([
+      listarContas(empresaAtual().id), pagamentosDaParcela(parcelaId),
     ]);
   } catch (e) { aviso(e.message, 'erro'); }
 
@@ -381,12 +381,12 @@ async function modalPagar(parcelaId) {
       </div>
 
       <div class="campo">
-        <label for="pg-fonte">De onde saiu</label>
-        <select class="controle" id="pg-fonte">
+        <label for="pg-conta">De onde saiu (conta)</label>
+        <select class="controle" id="pg-conta">
           <option value="">— não informar —</option>
-          ${fontes.filter(f => f.ativa).map(f => `<option value="${esc(f.id)}">${esc(f.nome)}</option>`).join('')}
+          ${contas.map(c => `<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('')}
         </select>
-        <div class="dica">A fonte é escolhida agora, no momento do pagamento</div>
+        <div class="dica">A conta de onde o dinheiro saiu — alimenta o saldo em Contas.</div>
       </div>
 
       <div class="campo">
@@ -448,7 +448,7 @@ async function modalPagar(parcelaId) {
         await registrarPagamento(parcelaId, {
           valor,
           data: q('#pg-data').value,
-          fonte_id: q('#pg-fonte').value,
+          conta_id: q('#pg-conta').value || null,
           comprovante_url: comprovante,
           observacao: q('#pg-obs').value,
         });

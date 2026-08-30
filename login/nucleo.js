@@ -744,6 +744,7 @@ export async function registrarPagamento(parcelaId, dados) {
       valor: Number(dados.valor),
       data: dados.data || new Date().toISOString().slice(0, 10),
       fonte_id: dados.fonte_id || null,
+      conta_id: dados.conta_id || null,
       comprovante_url: dados.comprovante_url || null,
       observacao: dados.observacao?.trim() || null,
     })
@@ -909,6 +910,7 @@ export async function registrarRecebimento(parcelaId, dados) {
       parcela_id: parcelaId,
       valor: Number(dados.valor),
       data: dados.data || new Date().toISOString().slice(0, 10),
+      conta_id: dados.conta_id || null,
       comprovante_url: dados.comprovante_url || null,
       observacao: dados.observacao?.trim() || null,
       registrado_por: sessao.usuario?.id || null,
@@ -1069,5 +1071,46 @@ export async function encerrarEvento(id) {
 // Exclui um evento (admin, e só se não estiver encerrado — regra no banco).
 export async function apagarEvento(id) {
   const { error } = await bd.from('evento').delete().eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+/* ── contas (fluxo de caixa por conta) ─────────────── */
+
+export async function listarContas(empresaId) {
+  const { data, error } = await bd.from('conta').select('*').eq('empresa_id', empresaId).eq('ativa', true).order('nome');
+  if (error) throw new Error(traduzErro(error.message));
+  return data || [];
+}
+
+export async function saldoContas(empresaId) {
+  const { data, error } = await bd.from('conta_saldo').select('*').eq('empresa_id', empresaId).order('nome');
+  if (error) { console.warn('saldo contas:', error.message); return []; }
+  return data || [];
+}
+
+// Conta é só um nome (sem vínculo a sócio/acesso).
+export async function salvarConta(empresaId, id, nome) {
+  const linha = { nome: (nome || '').trim() };
+  const q = id ? bd.from('conta').update(linha).eq('id', id) : bd.from('conta').insert({ ...linha, empresa_id: empresaId });
+  const { error } = await q;
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+export async function arquivarConta(id) {
+  const { error } = await bd.from('conta').update({ ativa: false }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+// aporte (+) ou devolução (-). "de quem" é texto livre (nome).
+export async function registrarMovimentoConta(conta_id, dados) {
+  const { error } = await bd.from('movimento_conta').insert({
+    conta_id,
+    tipo: dados.tipo,
+    valor: Number(dados.valor),
+    socio: dados.socio?.trim() || null,
+    data: dados.data || new Date().toISOString().slice(0, 10),
+    observacao: dados.observacao?.trim() || null,
+    registrado_por: sessao.usuario?.id || null,
+  });
   if (error) throw new Error(traduzErro(error.message));
 }

@@ -8,7 +8,7 @@
 import {
   listarFontesReceita, salvarFonteReceita, alternarFonteReceita, copiarFontesReceita,
   listarReceitas, listarParcelasReceita, criarReceita, apagarReceita,
-  registrarRecebimento, estornarRecebimento,
+  registrarRecebimento, estornarRecebimento, listarContas,
   listarEventos, empresaAtual,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
@@ -378,7 +378,9 @@ function modalDetalhe(id, alvo) {
 
 /* ── registrar recebimento ─────────────────────────── */
 
-function modalRecebimento(parcelaId, falta, alvo) {
+async function modalRecebimento(parcelaId, falta, alvo) {
+  let contas = [];
+  try { contas = await listarContas(contexto.evento.empresa?.id); } catch (_) {}
   abrirModal('Registrar recebimento', `
     <form id="frc">
       <div class="linha linha-2">
@@ -391,6 +393,14 @@ function modalRecebimento(parcelaId, falta, alvo) {
           <label for="rc-data">Data</label>
           <input class="controle" id="rc-data" type="date" value="${new Date().toISOString().slice(0, 10)}">
         </div>
+      </div>
+      <div class="campo">
+        <label for="rc-conta">Onde entrou (conta)</label>
+        <select class="controle" id="rc-conta">
+          <option value="">— não informar —</option>
+          ${contas.map(c => `<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('')}
+        </select>
+        <div class="dica">A conta onde o dinheiro entrou — alimenta o saldo em Contas.</div>
       </div>
       <div class="campo">
         <label for="rc-obs">Observação</label>
@@ -412,7 +422,7 @@ function modalRecebimento(parcelaId, falta, alvo) {
     await comBotao(q('#rc-salvar'), async () => {
       try {
         await registrarRecebimento(parcelaId, {
-          valor, data: q('#rc-data').value, observacao: q('#rc-obs').value,
+          valor, data: q('#rc-data').value, conta_id: q('#rc-conta').value || null, observacao: q('#rc-obs').value,
         });
         aviso('Recebimento registrado.');
         fecharModal();
