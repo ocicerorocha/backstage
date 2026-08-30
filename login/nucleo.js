@@ -1114,3 +1114,10 @@ export async function registrarMovimentoConta(conta_id, dados) {
   });
   if (error) throw new Error(traduzErro(error.message));
 }
+
+// Fluxo de caixa (entradas + saídas com conta) da produtora.
+export async function fluxoCaixa(empresaId) {
+  const { data, error } = await bd.from('fluxo_caixa').select('*').eq('empresa_id', empresaId).order('data', { ascending: false });
+  if (error) { console.warn('fluxo de caixa:', error.message); return []; }
+  return data || [];
+}

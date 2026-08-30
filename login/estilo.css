@@ -685,3 +685,19 @@ select.controle { cursor: pointer; }
    acima do backdrop quando o menu está aberto — senão o fundo
    escuro fica por cima do menu e engole os toques. */
 body.menu-aberto .topo { z-index: 60; }
+
+/* ── chips de conta (tela Contas) ──────────────────── */
+.conta-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-radius: 12px;
+  border: 1px solid var(--borda-forte); background: var(--superficie);
+  cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 500; color: var(--texto);
+  transition: background var(--transicao), border-color var(--transicao);
+}
+.conta-chip:hover { background: var(--superficie-2); }
+.conta-chip.on { border-color: var(--acento); background: var(--acento-fundo); color: var(--acento-texto); }
+.conta-chip .s { font-variant-numeric: tabular-nums; font-weight: 700; }
+.conta-chip .s.v { color: var(--verde); }
+.conta-chip .s.r { color: var(--vermelho); }
+.conta-chip .edit { margin-left: 2px; color: var(--texto-3); font-size: 12px; }
+.conta-chip .edit:hover { color: var(--texto); }
