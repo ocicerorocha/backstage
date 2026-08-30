@@ -202,9 +202,26 @@ export function empresasOndeCrio() {
     .map(m => m.empresa);
 }
 
+/** Empresa ativa (trocador). Guardada no navegador. */
+let _empresaAtivaId = null;
+try { _empresaAtivaId = localStorage.getItem('bs_empresa_ativa'); } catch (_) {}
+
 /** Produtora em que estou operando agora. */
 export function empresaAtual() {
-  return sessao.membros[0]?.empresa || null;
+  const m = sessao.membros.find(x => x.empresa?.id === _empresaAtivaId) || sessao.membros[0];
+  return m?.empresa || null;
+}
+
+/** Meu vínculo (papel/permissões) na produtora ativa. */
+export function membroAtual() {
+  const a = empresaAtual();
+  return sessao.membros.find(x => x.empresa?.id === a?.id) || sessao.membros[0] || null;
+}
+
+/** Troca a produtora ativa e guarda a escolha. */
+export function definirEmpresaAtiva(id) {
+  _empresaAtivaId = id;
+  try { localStorage.setItem('bs_empresa_ativa', id); } catch (_) {}
 }
 
 export async function salvarEmpresa(id, dados) {
@@ -1046,5 +1063,11 @@ export async function pagamentosRealizados(empresaId) {
 // Encerra o evento (trava novos lançamentos). Reversível mudando a situação no cadastro.
 export async function encerrarEvento(id) {
   const { error } = await bd.from('evento').update({ situacao: 'encerrado' }).eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+}
+
+// Exclui um evento (admin, e só se não estiver encerrado — regra no banco).
+export async function apagarEvento(id) {
+  const { error } = await bd.from('evento').delete().eq('id', id);
   if (error) throw new Error(traduzErro(error.message));
 }

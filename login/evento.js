@@ -2,7 +2,7 @@
 // Dentro de um evento — cabeçalho, abas e painel
 // ═══════════════════════════════════════════════════════
 
-import { buscarEvento, listarItens, minhaPermissao, andamentoItens, listarReceitas, encerrarEvento } from './nucleo.js';
+import { buscarEvento, listarItens, minhaPermissao, andamentoItens, listarReceitas, encerrarEvento, apagarEvento } from './nucleo.js';
 import { esc, aviso, moeda, numero, periodo, dataBR, iniciais, SITUACAO_EVENTO, registrarView } from './ui.js';
 import { abaProducao } from './producao.js';
 import { abaSolicitacoes, abaAprovacoes } from './solicitacoes.js';
@@ -56,7 +56,11 @@ function desenhar() {
   registrarView(desenhar);   // o olhinho repinta o evento sem sair dele
 
   alvo.innerHTML = `
-    <button class="botao voltar" id="voltar">← Eventos</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <button class="botao voltar" id="voltar">← Eventos</button>
+      ${(contexto.permissao?.admin && ev.situacao !== 'encerrado')
+        ? `<button class="botao botao-perigo" id="ev-excluir" style="height:32px;font-size:13px">Excluir evento</button>` : ''}
+    </div>
 
     <div class="evento-cabeca">
       ${ev.logo_url
@@ -86,6 +90,21 @@ function desenhar() {
 
   alvo.querySelector('#voltar').addEventListener('click', () => {
     document.dispatchEvent(new CustomEvent('voltar-eventos'));
+  });
+  const btnExcluir = alvo.querySelector('#ev-excluir');
+  if (btnExcluir) btnExcluir.addEventListener('click', async () => {
+    const n = (contexto.itens || []).length;
+    if (n > 0) {
+      const r = prompt(`Este evento tem ${n} item(ns). Excluir APAGA o evento e TODOS os seus dados (itens, solicitações, pagamentos, receitas). Ação irreversível.\n\nDigite EXCLUIR para confirmar:`);
+      if (r !== 'EXCLUIR') return;
+    } else {
+      if (!confirm('Excluir este evento? Esta ação é irreversível.')) return;
+    }
+    try {
+      await apagarEvento(ev.id);
+      aviso('Evento excluído.');
+      document.dispatchEvent(new CustomEvent('voltar-eventos'));
+    } catch (e) { aviso(e.message, 'erro'); }
   });
   alvo.querySelectorAll('[data-aba]').forEach(b => {
     b.addEventListener('click', () => { contexto.aba = b.dataset.aba; desenhar(); });

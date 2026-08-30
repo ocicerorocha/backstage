@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════
 
 import {
-  sessao, listarMembros, listarConvites, convidar, convidarUsuario, cancelarConvite,
+  sessao, empresaAtual, listarMembros, listarConvites, convidar, convidarUsuario, cancelarConvite,
   alterarMembro, listarEventos, listarPermissoes, salvarPermissao, removerPermissao,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR } from './ui.js';
@@ -48,7 +48,7 @@ let _eventos = [];
 
 export async function telaUsuarios() {
   const alvo = document.querySelector('#conteudo');
-  _empresa = sessao.membros[0]?.empresa;
+  _empresa = empresaAtual();
   if (!_empresa) {
     alvo.innerHTML = `<div class="vazio"><h3>Sem produtora</h3><p>Você não está vinculado a nenhuma produtora.</p></div>`;
     return;
