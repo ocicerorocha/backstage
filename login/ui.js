@@ -225,3 +225,88 @@ export function lerMoeda(input) {
   const d = String(input?.value || '').replace(/\D/g, '');
   return d ? parseInt(d, 10) / 100 : 0;
 }
+
+/* ── anexos (documentos ligados a item / receita) ──── */
+// Monta um bloco de documentos dentro de `container`.
+// opts = { carregar, anexar, apagar, abrir, podeGerir }
+//   carregar()          → Promise<doc[]>   (id, nome, categoria, caminho, tamanho, tipo, criado_em)
+//   anexar({arquivo, categoria}) → Promise
+//   apagar(id, caminho) → Promise
+//   abrir(caminho)      → Promise<url>
+export function montarAnexos(container, opts) {
+  const el = typeof container === 'string' ? document.querySelector(container) : container;
+  if (!el) return;
+  const { carregar, anexar, apagar, abrir, podeGerir } = opts;
+
+  const tam = (b) => {
+    b = Number(b || 0);
+    if (!b) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(0) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  };
+  const icone = (tipo, nome) => {
+    const n = (nome || '').toLowerCase(); const t = (tipo || '').toLowerCase();
+    if (t.startsWith('image/') || /\.(png|jpe?g|gif|webp|heic)$/.test(n)) return '🖼️';
+    if (t === 'application/pdf' || n.endsWith('.pdf')) return '📄';
+    if (/\.(xlsx?|csv)$/.test(n)) return '📊';
+    if (/\.(docx?)$/.test(n)) return '📝';
+    return '📎';
+  };
+
+  const pintar = (docs) => {
+    el.innerHTML = `
+      <label style="display:block;font-size:13px;font-weight:600;color:var(--texto-2);margin-bottom:8px">Documentos</label>
+      <div class="anx-lista">
+        ${docs.length ? docs.map(d => `
+          <div class="anx-item" style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--borda);border-radius:10px;margin-bottom:6px">
+            <span style="font-size:18px">${icone(d.tipo, d.nome)}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.nome)}</div>
+              <div style="font-size:11px;color:var(--texto-2)">${d.categoria ? esc(d.categoria) + ' · ' : ''}${d.tamanho ? tam(d.tamanho) + ' · ' : ''}${dataBR(d.criado_em)}</div>
+            </div>
+            <button type="button" class="botao anx-abrir" data-caminho="${esc(d.caminho)}" style="height:30px;font-size:12px">Abrir</button>
+            ${podeGerir ? `<button type="button" class="botao-icone anx-apagar" data-id="${esc(d.id)}" data-caminho="${esc(d.caminho)}" title="Excluir">×</button>` : ''}
+          </div>`).join('') : `<div style="font-size:13px;color:var(--texto-2);padding:2px 0 8px">Nenhum documento anexado.</div>`}
+      </div>
+      ${podeGerir ? `
+        <div class="anx-add" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+          <input class="controle anx-cat" placeholder="Categoria (ex.: Contrato)" style="height:36px;font-size:13px;flex:1;min-width:120px">
+          <input type="file" class="anx-file" style="font-size:12px;flex:2;min-width:150px">
+          <button type="button" class="botao anx-enviar" style="height:36px;font-size:13px">Anexar</button>
+        </div>` : ''}
+    `;
+
+    el.querySelectorAll('.anx-abrir').forEach(b =>
+      b.addEventListener('click', async () => {
+        try { const url = await abrir(b.dataset.caminho); window.open(url, '_blank', 'noopener'); }
+        catch (e) { aviso(e.message, 'erro'); }
+      }));
+    el.querySelectorAll('.anx-apagar').forEach(b =>
+      b.addEventListener('click', async () => {
+        if (!confirm('Excluir este documento?')) return;
+        try { await apagar(b.dataset.id, b.dataset.caminho); aviso('Documento excluído.'); recarregar(); }
+        catch (e) { aviso(e.message, 'erro'); }
+      }));
+
+    const enviar = el.querySelector('.anx-enviar');
+    if (enviar) enviar.addEventListener('click', async () => {
+      const file = el.querySelector('.anx-file');
+      const cat = el.querySelector('.anx-cat');
+      const arquivo = file?.files?.[0];
+      if (!arquivo) return aviso('Escolha um arquivo.', 'aviso');
+      if (arquivo.size > 25 * 1048576) return aviso('Arquivo muito grande (máx. 25 MB).', 'aviso');
+      await comBotao(enviar, async () => {
+        try { await anexar({ arquivo, categoria: cat.value }); aviso('Documento anexado.'); recarregar(); }
+        catch (e) { aviso(e.message, 'erro'); }
+      });
+    });
+  };
+
+  const recarregar = async () => {
+    try { pintar(await carregar()); }
+    catch (e) { el.innerHTML = `<div style="font-size:13px;color:var(--vermelho)">${esc(e.message)}</div>`; }
+  };
+  el.innerHTML = `<div style="font-size:13px;color:var(--texto-2)">Carregando documentos...</div>`;
+  recarregar();
+}

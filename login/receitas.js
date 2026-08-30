@@ -10,8 +10,9 @@ import {
   listarReceitas, listarParcelasReceita, criarReceita, apagarReceita,
   registrarRecebimento, estornarRecebimento, listarContas,
   listarEventos, empresaAtual,
+  documentosDaReceita, anexarDocumento, apagarDocumento, linkDocumento,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, aplicarMascaraMoeda, lerMoeda } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, aplicarMascaraMoeda, lerMoeda, montarAnexos } from './ui.js';
 import { contexto } from './evento.js';
 
 const SITUACOES = {
@@ -168,7 +169,7 @@ function modalNova(alvo) {
         </div>
         <div class="campo">
           <label for="r-prev">Valor previsto</label>
-          <input class="controle" id="r-prev" type="number" min="0.01" step="0.01" required>
+          <input class="controle" id="r-prev" data-moeda required>
         </div>
       </div>
 
@@ -210,22 +211,23 @@ function modalNova(alvo) {
       <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
         <input class="controle rp-venc" data-k="${k}" type="date" value="${p.vencimento}"
                style="height:36px;font-size:14px;flex:1">
-        <input class="controle rp-val num" data-k="${k}" type="number" min="0.01" step="0.01"
-               value="${p.valor}" placeholder="valor" style="height:36px;font-size:14px;width:130px">
+        <input class="controle rp-val num" data-k="${k}" data-moeda
+               value="${p.valor || ''}" placeholder="valor" style="height:36px;font-size:14px;width:130px">
         ${parcelas.length > 1 ? `<button type="button" class="botao-icone rp-rem" data-k="${k}">×</button>` : ''}
       </div>`).join('');
 
     q('#r-parcelas').querySelectorAll('.rp-venc').forEach(el =>
       el.addEventListener('change', () => { parcelas[el.dataset.k].vencimento = el.value; }));
     q('#r-parcelas').querySelectorAll('.rp-val').forEach(el =>
-      el.addEventListener('input', () => { parcelas[el.dataset.k].valor = el.value; conferir(); }));
+      el.addEventListener('input', () => { parcelas[el.dataset.k].valor = lerMoeda(el); conferir(); }));
     q('#r-parcelas').querySelectorAll('.rp-rem').forEach(el =>
       el.addEventListener('click', () => { parcelas.splice(el.dataset.k, 1); desenharParcelas(); conferir(); }));
+    aplicarMascaraMoeda(q('#r-parcelas'));
     conferir();
   };
 
   const conferir = () => {
-    const total = Number(q('#r-prev').value) || 0;
+    const total = lerMoeda(q('#r-prev'));
     const soma = parcelas.reduce((a, p) => a + (Number(p.valor) || 0), 0);
     const el = q('#r-conf');
     if (Math.abs(soma - total) > 0.005) {
@@ -236,21 +238,22 @@ function modalNova(alvo) {
   };
 
   q('#r-prev').addEventListener('input', () => {
-    if (parcelas.length === 1) { parcelas[0].valor = q('#r-prev').value; desenharParcelas(); }
+    if (parcelas.length === 1) { parcelas[0].valor = lerMoeda(q('#r-prev')); desenharParcelas(); }
     else conferir();
   });
   q('#r-add').addEventListener('click', () => {
-    const total = Number(q('#r-prev').value) || 0;
+    const total = lerMoeda(q('#r-prev'));
     const soma = parcelas.reduce((a, p) => a + (Number(p.valor) || 0), 0);
-    parcelas.push({ vencimento: '', valor: Math.max(total - soma, 0).toFixed(2) });
+    parcelas.push({ vencimento: '', valor: Math.max(total - soma, 0) });
     desenharParcelas();
   });
   q('#r-cancelar').addEventListener('click', fecharModal);
+  aplicarMascaraMoeda();
   desenharParcelas();
 
   q('#fr').addEventListener('submit', async e => {
     e.preventDefault();
-    const previsto = Number(q('#r-prev').value) || 0;
+    const previsto = lerMoeda(q('#r-prev'));
     if (previsto <= 0) return aviso('Informe o valor previsto.', 'aviso');
 
     const validas = parcelas.filter(p => Number(p.valor) > 0);
@@ -344,12 +347,22 @@ function modalDetalhe(id, alvo) {
       Cadastrada por ${esc(r.criado_por_nome || '—')} em ${dataBR(r.criado_em)}
     </div>
 
+    <div id="rd-docs" style="margin:14px 0;padding-top:14px;border-top:1px solid var(--borda)"></div>
+
     <div class="modal-acoes">
       ${podeLancar && aberto && Number(r.recebido) <= 0.005
         ? `<button type="button" class="botao botao-perigo" id="rd-apagar" style="margin-right:auto">Apagar receita</button>` : ''}
       <button type="button" class="botao" id="rd-fechar">Fechar</button>
     </div>
   `);
+
+  montarAnexos('#rd-docs', {
+    podeGerir: !!podeLancar,
+    carregar: () => documentosDaReceita(r.id),
+    anexar: ({ arquivo, categoria }) => anexarDocumento({ evento_id: contexto.evento.id, receita_id: r.id, categoria, arquivo }),
+    apagar: (docId, caminho) => apagarDocumento(docId, caminho),
+    abrir: (caminho) => linkDocumento(caminho),
+  });
 
   document.getElementById('rd-fechar').addEventListener('click', fecharModal);
   document.getElementById('rd-apagar')?.addEventListener('click', async () => {

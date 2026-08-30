@@ -11,8 +11,9 @@ import {
   empresaAtual, listarCategorias, criarCategoria, listarFornecedores, salvarFornecedor,
   salvarItem, apagarItem, listarPrestacao, salvarPrestacao, apagarPrestacao,
   andamentoItens,
+  documentosDoItem, anexarDocumento, apagarDocumento, linkDocumento,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido, aplicarMascaraMoeda, lerMoeda, montarAnexos } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
 import { abrirImportacao } from './importacao.js';
 import { modalNova, abaSolicitacoes } from './solicitacoes.js';
@@ -343,12 +344,12 @@ function modalItem(item) {
       <div class="linha linha-2">
         <div class="campo">
           <label for="i-valor">Valor orçado</label>
-          <input class="controle" id="i-valor" type="number" min="0" step="0.01"
+          <input class="controle" id="i-valor" data-moeda
                  value="${i.valor_orcado ?? ''}" placeholder="0,00" required>
         </div>
         <div class="campo">
           <label for="i-ref">Custo do evento anterior</label>
-          <input class="controle" id="i-ref" type="number" min="0" step="0.01"
+          <input class="controle" id="i-ref" data-moeda
                  value="${i.custo_referencia ?? ''}" placeholder="opcional"
                  ${podeAdmin ? '' : 'readonly style="opacity:.6;cursor:not-allowed"'}>
           ${podeAdmin ? '' : '<div class="dica" style="margin-top:4px">Definido pelo mestre ou administrador.</div>'}
@@ -369,7 +370,7 @@ function modalItem(item) {
         </div>
         <div class="campo">
           <label for="i-unit">Valor unitário</label>
-          <input class="controle" id="i-unit" type="number" min="0" step="0.01" value="${i.valor_unitario ?? ''}">
+          <input class="controle" id="i-unit" data-moeda value="${i.valor_unitario ?? ''}">
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <button type="button" class="botao" id="i-calcular">Usar este cálculo</button>
@@ -401,6 +402,8 @@ function modalItem(item) {
         <textarea class="controle" id="i-obs">${esc(i.observacoes || '')}</textarea>
       </div>
 
+      ${edicao ? `<div id="i-docs" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--borda)"></div>` : ''}
+
       <div class="modal-acoes">
         ${edicao ? `<button type="button" class="botao botao-perigo" id="i-apagar" style="margin-right:auto">Apagar</button>` : ''}
         <button type="button" class="botao" id="i-cancelar">Cancelar</button>
@@ -410,6 +413,17 @@ function modalItem(item) {
   `);
 
   const q = s => document.querySelector(s);
+  aplicarMascaraMoeda();
+
+  if (edicao && q('#i-docs')) {
+    montarAnexos('#i-docs', {
+      podeGerir: !!(contexto.permissao?.admin || contexto.permissao?.editar_producao),
+      carregar: () => documentosDoItem(i.id),
+      anexar: ({ arquivo, categoria }) => anexarDocumento({ evento_id: contexto.evento.id, item_id: i.id, categoria, arquivo }),
+      apagar: (id, caminho) => apagarDocumento(id, caminho),
+      abrir: (caminho) => linkDocumento(caminho),
+    });
+  }
 
   q('#i-cat').addEventListener('change', async e => {
     if (e.target.value !== '__nova') return;
@@ -431,7 +445,7 @@ function modalItem(item) {
     nome => salvarFornecedor(empresaAtual().id, null, { nome }));
 
   const calcular = () => {
-    const v = (Number(q('#i-qnt').value) || 0) * (Number(q('#i-dias').value) || 0) * (Number(q('#i-unit').value) || 0);
+    const v = (Number(q('#i-qnt').value) || 0) * (Number(q('#i-dias').value) || 0) * lerMoeda(q('#i-unit'));
     q('#i-resultado').textContent = v ? '= ' + moeda(v) : '';
     return v;
   };
@@ -441,6 +455,7 @@ function modalItem(item) {
     const v = calcular();
     if (!v) return aviso('Preencha quantidade, diárias e valor unitário.', 'aviso');
     q('#i-valor').value = v.toFixed(2);
+    q('#i-valor').dispatchEvent(new Event('input'));
     aviso('Valor orçado atualizado.');
   });
 
@@ -467,14 +482,14 @@ function modalItem(item) {
           descricao,
           categoria_id: q('#i-cat').value === '__nova' ? '' : q('#i-cat').value,
           fornecedor_id: q('#i-forn').value === '__novo' ? '' : q('#i-forn').value,
-          valor_orcado: q('#i-valor').value,
-          custo_referencia: q('#i-ref').value,
+          valor_orcado: lerMoeda(q('#i-valor')),
+          custo_referencia: q('#i-ref').value ? lerMoeda(q('#i-ref')) : '',
           situacao: q('#i-sit').value,
           eh_verba: q('#i-verba').checked,
           observacoes: q('#i-obs').value,
           quantidade: q('#i-qnt').value,
           dias: q('#i-dias').value,
-          valor_unitario: q('#i-unit').value,
+          valor_unitario: q('#i-unit').value ? lerMoeda(q('#i-unit')) : '',
         });
         aviso(edicao ? 'Item atualizado.' : 'Item cadastrado.');
         fecharModal();
@@ -542,7 +557,7 @@ async function modalPrestacao(item) {
           </div>
           <div class="campo" style="margin-bottom:10px">
             <label for="pc-valor">Valor</label>
-            <input class="controle" id="pc-valor" type="number" min="0.01" step="0.01" required>
+            <input class="controle" id="pc-valor" data-moeda required>
           </div>
         </div>
         <div class="campo" style="margin-bottom:10px">
@@ -558,6 +573,7 @@ async function modalPrestacao(item) {
     </div>
   `);
 
+  aplicarMascaraMoeda();
   document.getElementById('pc-fechar').addEventListener('click', fecharModal);
   document.getElementById('pc-editar-item')?.addEventListener('click', () => { fecharModal(); modalItem(item); });
 
@@ -575,7 +591,7 @@ async function modalPrestacao(item) {
     await comBotao(q('#pc-add'), async () => {
       try {
         await salvarPrestacao(item.id, null, {
-          descricao: q('#pc-desc').value, valor: q('#pc-valor').value, data: q('#pc-data').value,
+          descricao: q('#pc-desc').value, valor: lerMoeda(q('#pc-valor')), data: q('#pc-data').value,
         });
         await recarregarItens();
         modalPrestacao(contexto.itens.find(x => x.id === item.id) || item);

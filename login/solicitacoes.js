@@ -12,7 +12,7 @@ import {
   listarFornecedores, salvarFornecedor, empresaAtual, sessao,
   meiosPagamentoDaEmpresa, salvarMeioPagamento,
 } from './nucleo.js';
-import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido } from './ui.js';
+import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido, aplicarMascaraMoeda, lerMoeda } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
 
 export const SITUACOES = {
@@ -258,7 +258,7 @@ export function modalNova(alvo, itemId = null) {
         </div>
         <div class="campo">
           <label for="s-valor">Valor total</label>
-          <input class="controle" id="s-valor" type="number" min="0.01" step="0.01" required>
+          <input class="controle" id="s-valor" data-moeda required>
         </div>
       </div>
 
@@ -358,22 +358,23 @@ export function modalNova(alvo, itemId = null) {
       <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
         <input class="controle p-venc" data-k="${k}" type="date" value="${p.vencimento}"
                style="height:36px;font-size:14px;flex:1">
-        <input class="controle p-val num" data-k="${k}" type="number" min="0.01" step="0.01"
-               value="${p.valor}" placeholder="valor" style="height:36px;font-size:14px;width:130px">
+        <input class="controle p-val num" data-k="${k}" data-moeda
+               value="${p.valor || ''}" placeholder="valor" style="height:36px;font-size:14px;width:130px">
         ${parcelas.length > 1 ? `<button type="button" class="botao-icone p-rem" data-k="${k}">×</button>` : ''}
       </div>`).join('');
 
     q('#s-parcelas').querySelectorAll('.p-venc').forEach(el =>
       el.addEventListener('change', () => { parcelas[el.dataset.k].vencimento = el.value; }));
     q('#s-parcelas').querySelectorAll('.p-val').forEach(el =>
-      el.addEventListener('input', () => { parcelas[el.dataset.k].valor = el.value; conferir(); }));
+      el.addEventListener('input', () => { parcelas[el.dataset.k].valor = lerMoeda(el); conferir(); }));
     q('#s-parcelas').querySelectorAll('.p-rem').forEach(el =>
       el.addEventListener('click', () => { parcelas.splice(el.dataset.k, 1); desenharParcelas(); conferir(); }));
+    aplicarMascaraMoeda(q('#s-parcelas'));
     conferir();
   };
 
   const conferir = () => {
-    const total = Number(q('#s-valor').value) || 0;
+    const total = lerMoeda(q('#s-valor'));
     const soma = parcelas.reduce((a, p) => a + (Number(p.valor) || 0), 0);
     const d = saldoDoItem();
     const el = q('#s-conf');
@@ -388,16 +389,17 @@ export function modalNova(alvo, itemId = null) {
 
   q('#s-item').addEventListener('change', () => { mostrarSaldo(); conferir(); });
   q('#s-valor').addEventListener('input', () => {
-    if (parcelas.length === 1) { parcelas[0].valor = q('#s-valor').value; desenharParcelas(); }
+    if (parcelas.length === 1) { parcelas[0].valor = lerMoeda(q('#s-valor')); desenharParcelas(); }
     else conferir();
   });
   q('#s-add').addEventListener('click', () => {
-    const total = Number(q('#s-valor').value) || 0;
+    const total = lerMoeda(q('#s-valor'));
     const soma = parcelas.reduce((a, p) => a + (Number(p.valor) || 0), 0);
-    parcelas.push({ vencimento: '', valor: Math.max(total - soma, 0).toFixed(2) });
+    parcelas.push({ vencimento: '', valor: Math.max(total - soma, 0) });
     desenharParcelas();
   });
   q('#s-cancelar').addEventListener('click', fecharModal);
+  aplicarMascaraMoeda();
 
   ligarCadastroRapido('#s-forn', _fornecedores,
     async nome => {
@@ -473,7 +475,7 @@ export function modalNova(alvo, itemId = null) {
 
   q('#fs').addEventListener('submit', async e => {
     e.preventDefault();
-    const valor = Number(q('#s-valor').value) || 0;
+    const valor = lerMoeda(q('#s-valor'));
     if (valor <= 0) return aviso('Informe o valor.', 'aviso');
 
     const validas = parcelas.filter(p => Number(p.valor) > 0);

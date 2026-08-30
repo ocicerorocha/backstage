@@ -2,7 +2,7 @@
 // Backstage — inicialização e estrutura
 // ═══════════════════════════════════════════════════════
 
-import { bd, sessao, carregarSessao, sair, salvarPerfil, empresaAtual, membroAtual, definirEmpresaAtiva } from './nucleo.js';
+import { bd, sessao, carregarSessao, sair, salvarPerfil, empresaAtual, membroAtual, definirEmpresaAtiva, termosAceitos, aceitarTermos } from './nucleo.js';
 import { APP } from './config.js';
 import {
   esc, aviso, iniciarModal, abrirModal, fecharModal, comBotao,
@@ -17,6 +17,7 @@ import { telaFornecedores } from './fornecedores.js';
 import { telaProdutora } from './produtora.js';
 import { telaPagamentos } from './pagamentos.js';
 import { telaContas } from './contas.js';
+import { telaDocumentos } from './documentos.js';
 
 aplicarTema(temaAtual());
 iniciarModal();
@@ -67,6 +68,7 @@ const SECOES = [
   { id: 'eventos',      rotulo: 'Eventos',      tela: telaEventos,      sempre: true },
   { id: 'pagamentos',   rotulo: 'Pagamentos',   tela: telaPagamentos,   pagador: true },
   { id: 'contas',       rotulo: 'Contas',       tela: telaContas,       pagador: true },
+  { id: 'documentos',   rotulo: 'Documentos',   tela: telaDocumentos,   sempre: true },
   { id: 'fornecedores', rotulo: 'Fornecedores', tela: telaFornecedores, perm: 'gerir_fornecedores' },
   { id: 'usuarios',     rotulo: 'Usuários',     tela: telaUsuarios,     perm: 'gerir_usuarios' },
   { id: 'produtora',    rotulo: 'Produtora',    tela: telaProdutora,    sempre: true },
@@ -145,6 +147,62 @@ const olho = document.getElementById('btn-olho');
   });
 
   await irPara(secoes[0].id);
+  garantirTermos();
+}
+
+/* ── aceite dos termos (primeiro acesso) ───────────── */
+
+function garantirTermos() {
+  if (termosAceitos()) return;
+  if (document.getElementById('termos-portao')) return;
+
+  const portao = document.createElement('div');
+  portao.id = 'termos-portao';
+  portao.setAttribute('role', 'dialog');
+  portao.setAttribute('aria-modal', 'true');
+  portao.style.cssText = 'position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.55);backdrop-filter:blur(2px)';
+  portao.innerHTML = `
+    <div style="background:var(--superficie);color:var(--texto);max-width:520px;width:100%;border-radius:16px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.35);max-height:90vh;overflow:auto">
+      <h2 style="margin:0 0 6px;font-size:20px">Antes de começar</h2>
+      <p style="color:var(--texto-2);font-size:14px;margin:0 0 16px">
+        Para usar o ${esc(APP.nome)} é preciso aceitar os Termos de Uso e a Política de Privacidade.
+      </p>
+      <div style="background:var(--superficie-2);border-radius:12px;padding:16px;font-size:13px;line-height:1.55;color:var(--texto-2);margin-bottom:18px">
+        Em resumo: seus dados e os dos seus eventos são seus e ficam isolados por produtora.
+        O ${esc(APP.nome)} guarda e organiza essas informações para você e sua equipe, com
+        acesso controlado por permissões. Não vendemos seus dados. Você pode solicitar
+        exclusão a qualquer momento.
+        <a href="https://usebackstage.com.br/termos" target="_blank" rel="noopener" style="color:var(--acento-texto);display:inline-block;margin-top:8px">Ler os termos completos ↗</a>
+      </div>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;margin-bottom:18px">
+        <input type="checkbox" id="termos-ok" style="margin-top:3px;flex-shrink:0">
+        <span>Li e aceito os Termos de Uso e a Política de Privacidade do ${esc(APP.nome)}.</span>
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button type="button" class="botao" id="termos-sair">Sair</button>
+        <button type="button" class="botao botao-primario" id="termos-aceitar" disabled>Aceitar e continuar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(portao);
+
+  const chk = portao.querySelector('#termos-ok');
+  const btn = portao.querySelector('#termos-aceitar');
+  chk.addEventListener('change', () => { btn.disabled = !chk.checked; });
+
+  portao.querySelector('#termos-sair').addEventListener('click', async () => {
+    portao.remove();
+    await sair();
+    telaLogin(entrarNoSistema);
+  });
+
+  btn.addEventListener('click', async () => {
+    if (!chk.checked) return;
+    await comBotao(btn, async () => {
+      try { await aceitarTermos(); portao.remove(); }
+      catch (e) { aviso(e.message, 'erro'); }
+    });
+  });
 }
 
 async function irPara(id) {

@@ -150,7 +150,7 @@ export async function carregarSessao() {
   try { await bd.rpc('aceitar_convites'); } catch (e) { console.warn('convites:', e.message); }
 
   const { data: perfil, error } = await comPrazo(
-    bd.from('usuario').select('id, nome, cpf, telefone').eq('id', s.user.id).maybeSingle(),
+    bd.from('usuario').select('id, nome, cpf, telefone, termos_aceitos_em').eq('id', s.user.id).maybeSingle(),
     12000,
     'O banco não respondeu ao buscar seu perfil.'
   );
@@ -162,6 +162,7 @@ export async function carregarSessao() {
     nome: perfil?.nome || s.user.email,
     cpf: perfil?.cpf || '',
     telefone: perfil?.telefone || '',
+    termos_aceitos_em: perfil?.termos_aceitos_em || null,
   };
 
   const { data: membros, error: e2 } = await bd
@@ -786,6 +787,122 @@ export async function enviarComprovante(arquivo) {
 export async function linkComprovante(caminho) {
   const { data, error } = await bd.storage
     .from('comprovantes').createSignedUrl(caminho, 300);
+  if (error) throw new Error(traduzErro(error.message));
+  return data.signedUrl;
+}
+
+/* ── aceite dos termos ─────────────────────────────── */
+
+/** Marca que o usuário logado aceitou os Termos agora. */
+export async function aceitarTermos() {
+  const agora = new Date().toISOString();
+  const { error } = await bd.from('usuario')
+    .update({ termos_aceitos_em: agora })
+    .eq('id', sessao.usuario.id);
+  if (error) throw new Error(traduzErro(error.message));
+  sessao.usuario.termos_aceitos_em = agora;
+}
+
+/** Já aceitou os Termos? */
+export function termosAceitos() {
+  return !!sessao.usuario?.termos_aceitos_em;
+}
+
+/* ── documentos (anexos de item / receita) ─────────── */
+
+/** Sobe um arquivo para o depósito fechado e devolve o caminho. */
+export async function enviarDocumento(arquivo) {
+  const ext = (arquivo.name.split('.').pop() || 'bin').toLowerCase();
+  const caminho = `${new Date().getFullYear()}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await bd.storage
+    .from('documentos')
+    .upload(caminho, arquivo, { cacheControl: '3600', upsert: false });
+  if (error) throw new Error(traduzErro(error.message));
+  return caminho;
+}
+
+/** Grava o registro do documento (metadados). Um dos vínculos é obrigatório. */
+export async function salvarDocumento(dados) {
+  const linha = {
+    evento_id: dados.evento_id,
+    item_id: dados.item_id || null,
+    receita_id: dados.receita_id || null,
+    categoria: dados.categoria?.trim() || null,
+    nome: dados.nome?.trim() || 'documento',
+    caminho: dados.caminho,
+    tipo: dados.tipo || null,
+    tamanho: dados.tamanho || null,
+    enviado_por: sessao.usuario?.id || null,
+  };
+  const { data, error } = await bd.from('documento').insert(linha).select().single();
+  if (error) throw new Error(traduzErro(error.message));
+  return data;
+}
+
+/** Sobe o arquivo e grava o registro numa tacada. */
+export async function anexarDocumento({ evento_id, item_id, receita_id, categoria, arquivo }) {
+  const caminho = await enviarDocumento(arquivo);
+  return salvarDocumento({
+    evento_id, item_id, receita_id, categoria,
+    nome: arquivo.name, caminho, tipo: arquivo.type || null, tamanho: arquivo.size || null,
+  });
+}
+
+/** Todos os documentos do evento (para a aba Documentos, com filtros no cliente). */
+export async function listarDocumentos(eventoId) {
+  const { data, error } = await bd
+    .from('documento_visao')
+    .select('*')
+    .eq('evento_id', eventoId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Todos os documentos da produtora (aba Documentos, filtros no cliente). */
+export async function listarDocumentosEmpresa(empresaId) {
+  const { data, error } = await bd
+    .from('documento_visao')
+    .select('*')
+    .eq('empresa_id', empresaId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Documentos de um item de produção. */
+export async function documentosDoItem(itemId) {
+  const { data, error } = await bd
+    .from('documento_visao')
+    .select('*')
+    .eq('item_id', itemId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Documentos de uma receita. */
+export async function documentosDaReceita(receitaId) {
+  const { data, error } = await bd
+    .from('documento_visao')
+    .select('*')
+    .eq('receita_id', receitaId)
+    .order('criado_em', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Apaga o registro e o arquivo do depósito. */
+export async function apagarDocumento(id, caminho) {
+  const { error } = await bd.from('documento').delete().eq('id', id);
+  if (error) throw new Error(traduzErro(error.message));
+  if (caminho) { try { await bd.storage.from('documentos').remove([caminho]); } catch (_) {} }
+}
+
+/** Link temporário para abrir/baixar um documento. */
+export async function linkDocumento(caminho) {
+  const { data, error } = await bd.storage
+    .from('documentos').createSignedUrl(caminho, 300);
   if (error) throw new Error(traduzErro(error.message));
   return data.signedUrl;
 }
