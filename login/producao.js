@@ -51,6 +51,7 @@ function andamentoDoItem(a, orcado) {
 
 let _categorias = [];
 let _fornecedores = [];
+let _listasEmpresa = null;
 let _andamento = {};        // item_id → { solicitado, pago, em_fluxo }
 let _filtroCategorias = new Set();  // categoria_id (várias ao mesmo tempo)
 let _filtroSituacoes = new Set();   // situação manual (várias)
@@ -86,7 +87,9 @@ function filtroMenu(rotulo, grupo, opcoes, selecionadas) {
 
 export async function abaProducao(alvo) {
   const emp = empresaAtual();
-  if (!_categorias.length) {
+  // listas auxiliares sempre da produtora ativa — recarrega ao trocar
+  if (!_categorias.length || _listasEmpresa !== emp.id) {
+    _listasEmpresa = emp.id;
     try {
       [_categorias, _fornecedores] = await Promise.all([
         listarCategorias(emp.id, 'despesa'), listarFornecedores(emp.id),

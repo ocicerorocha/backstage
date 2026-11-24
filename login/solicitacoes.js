@@ -38,7 +38,7 @@ export async function abaSolicitacoes(alvo, apenasFila = false) {
     [_solicitacoes, _saldos, _fornecedores] = await Promise.all([
       listarSolicitacoes(contexto.evento.id),
       saldoItens(contexto.evento.id),
-      _fornecedores.length ? Promise.resolve(_fornecedores) : listarFornecedores(emp.id),
+      listarFornecedores(emp.id), // sempre fresco: inclui os cadastrados na Produção
     ]);
     _parcelas = await listarParcelas(_solicitacoes.map(s => s.id));
     _meios = await meiosPagamentoDaEmpresa(emp.id);
