@@ -52,6 +52,7 @@ function andamentoDoItem(a, orcado) {
 let _categorias = [];
 let _fornecedores = [];
 let _listasEmpresa = null;
+let _ordem = { col: null, dir: 1 };   // ordenação pelo cabeçalho (null = por Nº)
 let _andamento = {};        // item_id → { solicitado, pago, em_fluxo }
 let _filtroCategorias = new Set();  // categoria_id (várias ao mesmo tempo)
 let _filtroSituacoes = new Set();   // situação manual (várias)
@@ -124,6 +125,8 @@ function desenhar(alvo) {
       String(i.numero).includes(t));
   }
 
+  if (_ordem.col) itens = ordenar(itens);
+
   const totalOrcado = itens.reduce((a, i) => a + Number(i.valor_orcado || 0), 0);
   const totalRef = itens.reduce((a, i) => a + Number(i.custo_referencia || 0), 0);
   const totalPago = itens.reduce((a, i) => a + Number(_andamento[i.id]?.pago || 0), 0);
@@ -159,14 +162,14 @@ function desenhar(alvo) {
         <table class="tabela">
           <thead>
             <tr>
-              <th style="width:52px">Nº</th>
-              <th>Item</th>
-              <th style="width:150px">Categoria</th>
-              <th style="width:120px" class="num">Ano anterior</th>
-              <th style="width:130px" class="num">Orçado</th>
-              <th style="width:130px" class="num">Pago</th>
-              <th style="width:130px" class="num">A pagar</th>
-              <th style="width:150px">Situação</th>
+              ${cab('numero', 'Nº', 'width:52px')}
+              ${cab('descricao', 'Item', '')}
+              ${cab('categoria', 'Categoria', 'width:150px')}
+              ${cab('referencia', 'Ano anterior', 'width:120px', true)}
+              ${cab('orcado', 'Orçado', 'width:130px', true)}
+              ${cab('pago', 'Pago', 'width:130px', true)}
+              ${cab('apagar', 'A pagar', 'width:130px', true)}
+              ${cab('situacao', 'Situação', 'width:150px')}
               ${podeSolicitar ? '<th style="width:44px"></th>' : ''}
               ${podeEditar ? '<th style="width:44px"></th>' : ''}
             </tr>
@@ -226,6 +229,14 @@ function desenhar(alvo) {
     };
     setTimeout(() => document.addEventListener('click', _fecharMenu), 0);
   }
+  alvo.querySelectorAll('[data-ordem]').forEach(el =>
+    el.addEventListener('click', () => {
+      const c = el.dataset.ordem;
+      if (_ordem.col !== c) _ordem = { col: c, dir: NUMERICAS.has(c) ? -1 : 1 };  // valor: maior primeiro
+      else if (_ordem.dir === (NUMERICAS.has(c) ? -1 : 1)) _ordem.dir = -_ordem.dir; // 2º clique inverte
+      else _ordem = { col: null, dir: 1 };                                           // 3º clique volta ao Nº
+      desenhar(alvo);
+    }));
   q('#p-novo')?.addEventListener('click', () => modalItem(null));
   q('#p-novo2')?.addEventListener('click', () => modalItem(null));
   q('#p-exportar')?.addEventListener('click', () => exportarPlanilha(itens));
@@ -265,6 +276,46 @@ function desenhar(alvo) {
       await abaSolicitacoes(document.createElement('div'));
       modalNova(alvo, id);
     }));
+}
+
+/* ── ordenação pelo cabeçalho ──────────────────────── */
+
+const NUMERICAS = new Set(['referencia', 'orcado', 'pago', 'apagar']);
+const ORDEM_SITUACAO = { previsto: 0, orcado: 1, contratado: 2, cancelado: 3 };
+
+function cab(col, rotulo, estilo, numerica = false) {
+  const ativa = _ordem.col === col || (!_ordem.col && col === 'numero');
+  const seta = ativa ? (_ordem.col ? (_ordem.dir > 0 ? ' ▲' : ' ▼') : '') : '';
+  return `<th data-ordem="${col}" class="${numerica ? 'num' : ''}"
+    style="${estilo};cursor:pointer;user-select:none;white-space:nowrap${ativa && _ordem.col ? ';color:var(--acento)' : ''}"
+    title="Ordenar por ${rotulo}">${rotulo}${seta}</th>`;
+}
+
+function valorOrdem(i, col) {
+  const pago = Number(_andamento[i.id]?.pago || 0);
+  switch (col) {
+    case 'numero':     return Number(i.numero) || 0;
+    case 'descricao':  return (i.descricao || '').toLocaleLowerCase('pt-BR');
+    case 'categoria':  return (i.categoria_nome || '\uffff').toLocaleLowerCase('pt-BR');  // sem categoria vai pro fim
+    case 'referencia': return i.custo_referencia == null ? null : Number(i.custo_referencia);
+    case 'orcado':     return Number(i.valor_orcado || 0);
+    case 'pago':       return pago;
+    case 'apagar':     return Math.max(Number(i.valor_orcado || 0) - pago, 0);
+    case 'situacao':   return ORDEM_SITUACAO[i.situacao] ?? 9;
+  }
+  return 0;
+}
+
+function ordenar(itens) {
+  const { col, dir } = _ordem;
+  return [...itens].sort((a, b) => {
+    const va = valorOrdem(a, col), vb = valorOrdem(b, col);
+    if (va === null && vb !== null) return 1;     // vazio sempre no fim
+    if (vb === null && va !== null) return -1;
+    let r = typeof va === 'string' ? va.localeCompare(vb, 'pt-BR') : va - vb;
+    if (r === 0) return (Number(a.numero) || 0) - (Number(b.numero) || 0);  // empate: mantém a ordem do Nº
+    return r * dir;
+  });
 }
 
 function linha(i, podeEditar, podeSolicitar) {
