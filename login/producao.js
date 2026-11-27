@@ -12,6 +12,7 @@ import {
   salvarItem, apagarItem, listarPrestacao, salvarPrestacao, apagarPrestacao,
   andamentoItens,
   documentosDoItem, anexarDocumento, apagarDocumento, linkDocumento,
+  comprovantesDePagamento, linkComprovante,
 } from './nucleo.js';
 import { esc, aviso, abrirModal, fecharModal, comBotao, moeda, dataBR, ligarCadastroRapido, aplicarMascaraMoeda, lerMoeda, montarAnexos } from './ui.js';
 import { contexto, recarregarItens } from './evento.js';
@@ -472,10 +473,14 @@ function modalItem(item) {
   if (edicao && q('#i-docs')) {
     montarAnexos('#i-docs', {
       podeGerir: !!(contexto.permissao?.admin || contexto.permissao?.editar_producao),
-      carregar: () => documentosDoItem(i.id),
+      // anexos do item + comprovantes dos pagamentos deste item
+      carregar: async () => {
+        const [docs, comps] = await Promise.all([documentosDoItem(i.id), comprovantesDePagamento({ itemId: i.id })]);
+        return [...docs, ...comps].sort((a, b) => String(b.criado_em || '').localeCompare(String(a.criado_em || '')));
+      },
       anexar: ({ arquivo, categoria }) => anexarDocumento({ evento_id: contexto.evento.id, item_id: i.id, categoria, arquivo }),
       apagar: (id, caminho) => apagarDocumento(id, caminho),
-      abrir: (caminho) => linkDocumento(caminho),
+      abrir: (caminho, origem) => origem === 'pagamento' ? linkComprovante(caminho) : linkDocumento(caminho),
     });
   }
 
