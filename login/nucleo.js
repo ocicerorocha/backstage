@@ -870,6 +870,45 @@ export async function listarDocumentosEmpresa(empresaId) {
   return data || [];
 }
 
+/**
+ * Comprovantes anexados nos pagamentos, no mesmo formato dos documentos,
+ * para aparecerem na aba Documentos e nos anexos do item. Ficam no depósito
+ * "comprovantes" (origem: 'pagamento') e não são apagáveis por aqui.
+ * Filtro: { empresaId } ou { eventoId } ou { itemId }.
+ */
+export async function comprovantesDePagamento({ empresaId, eventoId, itemId } = {}) {
+  let q = bd
+    .from('pagamento')
+    .select('id, valor, data, criado_em, comprovante_url, parcela!inner(solicitacao!inner(evento_id, item_id, fornecedor:fornecedor_id(nome), evento:evento_id!inner(nome, empresa_id), item:item_id(descricao, numero)))')
+    .not('comprovante_url', 'is', null)
+    .is('estorno_de', null);
+  if (empresaId) q = q.eq('parcela.solicitacao.evento.empresa_id', empresaId);
+  if (eventoId)  q = q.eq('parcela.solicitacao.evento_id', eventoId);
+  if (itemId)    q = q.eq('parcela.solicitacao.item_id', itemId);
+  const { data, error } = await q;
+  if (error) { console.warn('comprovantes de pagamento:', error.message); return []; }
+  return (data || []).map(p => {
+    const s = p.parcela?.solicitacao || {};
+    const ext = (p.comprovante_url.split('.').pop() || '').toLowerCase();
+    const valor = Number(p.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    return {
+      id: 'pg-' + p.id,
+      origem: 'pagamento',
+      nome: `Comprovante de pagamento · ${valor}${s.fornecedor?.nome ? ' · ' + s.fornecedor.nome : ''}`,
+      categoria: 'Comprovante de pagamento',
+      caminho: p.comprovante_url,
+      tipo: ext === 'pdf' ? 'application/pdf' : /^(png|jpe?g|gif|webp|heic)$/.test(ext) ? 'image/' + ext : null,
+      tamanho: null,
+      criado_em: p.data || p.criado_em,
+      evento_id: s.evento_id,
+      evento_nome: s.evento?.nome || '',
+      item_id: s.item_id,
+      item_nome: s.item ? `${String(s.item.numero || '').padStart(3, '0')} ${s.item.descricao || ''}`.trim() : '',
+      receita_id: null,
+    };
+  });
+}
+
 /** Documentos de um item de produção. */
 export async function documentosDoItem(itemId) {
   const { data, error } = await bd
