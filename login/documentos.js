@@ -7,7 +7,7 @@
 // receita). Abrir usa link temporário; o depósito é fechado.
 // ═══════════════════════════════════════════════════════
 
-import { empresaAtual, souAdmin, listarDocumentosEmpresa, linkDocumento, apagarDocumento } from './nucleo.js';
+import { empresaAtual, souAdmin, listarDocumentosEmpresa, comprovantesDePagamento, linkDocumento, linkComprovante, apagarDocumento } from './nucleo.js';
 import { esc, aviso, dataBR } from './ui.js';
 
 let _emp = null;
@@ -23,7 +23,12 @@ export async function telaDocumentos() {
 
   alvo.innerHTML = `<div style="padding:40px;text-align:center;color:var(--texto-2)">Carregando documentos...</div>`;
   try {
-    _docs = await listarDocumentosEmpresa(_emp.id);
+    const [docs, comps] = await Promise.all([
+      listarDocumentosEmpresa(_emp.id),
+      comprovantesDePagamento({ empresaId: _emp.id }),
+    ]);
+    // documentos anexados + comprovantes dos pagamentos, mais recentes primeiro
+    _docs = [...docs, ...comps].sort((a, b) => String(b.criado_em || '').localeCompare(String(a.criado_em || '')));
   } catch (e) {
     alvo.innerHTML = `<div class="vazio"><h3>Não consegui carregar</h3><p>${esc(e.message)}</p></div>`;
     return;
@@ -94,9 +99,9 @@ function pintar() {
           const vinc = d.item_id ? `Item: ${esc(d.item_nome || '—')}`
                      : d.receita_id ? `Receita: ${esc(d.receita_nome || '—')}`
                      : 'Evento';
-          const podeApagar = souAdmin(_emp.id);
+          const podeApagar = souAdmin(_emp.id) && d.origem !== 'pagamento';
           return `
-          <div class="linha-lista" data-doc="${esc(d.id)}" data-caminho="${esc(d.caminho)}" style="cursor:pointer">
+          <div class="linha-lista" data-doc="${esc(d.id)}" data-caminho="${esc(d.caminho)}" data-origem="${esc(d.origem || '')}" style="cursor:pointer">
             <div style="font-size:22px;flex-shrink:0;margin-right:4px">${iconeArquivo(d.tipo, d.nome)}</div>
             <div style="flex:1;min-width:0">
               <div style="font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.nome)}</div>
@@ -105,14 +110,14 @@ function pintar() {
                 ${esc(d.evento_nome || '')} · ${vinc}${d.tamanho ? ' · ' + tamanhoBonito(d.tamanho) : ''} · ${dataBR(d.criado_em)}
               </div>
             </div>
-            <button class="botao d-abrir" data-caminho="${esc(d.caminho)}" style="flex-shrink:0;height:32px;font-size:13px">Abrir</button>
+            <button class="botao d-abrir" data-caminho="${esc(d.caminho)}" data-origem="${esc(d.origem || '')}" style="flex-shrink:0;height:32px;font-size:13px">Abrir</button>
             ${podeApagar ? `<button class="botao-icone d-apagar" data-doc="${esc(d.id)}" data-caminho="${esc(d.caminho)}" title="Excluir" style="flex-shrink:0">×</button>` : ''}
           </div>`;
         }).join('')}
       </div>` : `
       <div class="vazio">
         <h3>Nenhum documento</h3>
-        <p>${_docs.length ? 'Nada bate com o filtro.' : 'Anexe contratos, notas e recibos nos itens de produção e nas receitas — eles aparecem aqui.'}</p>
+        <p>${_docs.length ? 'Nada bate com o filtro.' : 'Anexe contratos, notas e recibos nos itens de produção e nas receitas, ou comprovantes ao registrar pagamentos. Tudo aparece aqui.'}</p>
       </div>`}
   `;
 
@@ -122,9 +127,9 @@ function pintar() {
   q('#d-categoria')?.addEventListener('change', e => { _fCategoria = e.target.value; pintar(); });
 
   alvo.querySelectorAll('.d-abrir').forEach(b =>
-    b.addEventListener('click', e => { e.stopPropagation(); abrir(b.dataset.caminho); }));
+    b.addEventListener('click', e => { e.stopPropagation(); abrir(b.dataset.caminho, b.dataset.origem); }));
   alvo.querySelectorAll('[data-doc].linha-lista').forEach(l =>
-    l.addEventListener('click', () => abrir(l.dataset.caminho)));
+    l.addEventListener('click', () => abrir(l.dataset.caminho, l.dataset.origem)));
   alvo.querySelectorAll('.d-apagar').forEach(b =>
     b.addEventListener('click', e => { e.stopPropagation(); remover(b.dataset.doc, b.dataset.caminho); }));
 }
@@ -140,9 +145,10 @@ function repintarLista() {
   }
 }
 
-async function abrir(caminho) {
+async function abrir(caminho, origem) {
   try {
-    const url = await linkDocumento(caminho);
+    // comprovante de pagamento mora em outro depósito
+    const url = origem === 'pagamento' ? await linkComprovante(caminho) : await linkDocumento(caminho);
     window.open(url, '_blank', 'noopener');
   } catch (e) { aviso(e.message, 'erro'); }
 }
