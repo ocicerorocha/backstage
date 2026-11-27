@@ -265,8 +265,8 @@ export function montarAnexos(container, opts) {
               <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(d.nome)}</div>
               <div style="font-size:11px;color:var(--texto-2)">${d.categoria ? esc(d.categoria) + ' · ' : ''}${d.tamanho ? tam(d.tamanho) + ' · ' : ''}${dataBR(d.criado_em)}</div>
             </div>
-            <button type="button" class="botao anx-abrir" data-caminho="${esc(d.caminho)}" style="height:30px;font-size:12px">Abrir</button>
-            ${podeGerir ? `<button type="button" class="botao-icone anx-apagar" data-id="${esc(d.id)}" data-caminho="${esc(d.caminho)}" title="Excluir">×</button>` : ''}
+            <button type="button" class="botao anx-abrir" data-caminho="${esc(d.caminho)}" data-origem="${esc(d.origem || '')}" style="height:30px;font-size:12px">Abrir</button>
+            ${podeGerir && d.origem !== 'pagamento' ? `<button type="button" class="botao-icone anx-apagar" data-id="${esc(d.id)}" data-caminho="${esc(d.caminho)}" title="Excluir">×</button>` : ''}
           </div>`).join('') : `<div style="font-size:13px;color:var(--texto-2);padding:2px 0 8px">Nenhum documento anexado.</div>`}
       </div>
       ${podeGerir ? `
@@ -279,7 +279,7 @@ export function montarAnexos(container, opts) {
 
     el.querySelectorAll('.anx-abrir').forEach(b =>
       b.addEventListener('click', async () => {
-        try { const url = await abrir(b.dataset.caminho); window.open(url, '_blank', 'noopener'); }
+        try { const url = await abrir(b.dataset.caminho, b.dataset.origem); window.open(url, '_blank', 'noopener'); }
         catch (e) { aviso(e.message, 'erro'); }
       }));
     el.querySelectorAll('.anx-apagar').forEach(b =>
